@@ -87,10 +87,12 @@ addr_inet_port_to_netbyteorder:
 	#define RESL_LOB ACCM_LOB
 
 
-	movq PORT_REG, RESL_REG
-	xchgb RESL_HIB, RESL_LOB
-
+	movq PORT_REG, RESL_REG						/*   move argument to accumulator                                */
+	xchgb RESL_HIB, RESL_LOB					/*   exchange lower bits of accumulator with higher              */
+												/*   en effet this will make it MSB, ipso facto net-compiant     */
 	ret
 
 	#undef PORT_REG
 	#undef RESL_REG
+	#undef RESL_HIB
+	#undef RESL_LOB
