@@ -1,0 +1,1 @@
+gcc -ggdb3 -Iinclude  src/cc/panah.c src/as/panah.S -o /tmp/panah && gdb /tmp/panah
