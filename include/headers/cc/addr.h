@@ -1,0 +1,2 @@
+extern panah_yield_t addr_inet_address_to_netbyteorder(panah_hostaddr_t hostaddr, panah_inetaddr_t *inetaddr);
+extern panah_inetport_t addr_inet_port_to_netbyteorder(panah_inetport_t port);
