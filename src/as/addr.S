@@ -65,3 +65,32 @@ addr_inet_address_to_netbyteorder:
 6:
 	movq $EINETADDRTOOLONG, RESL_REG             /*   address too long, terminated 								*/
 	jmp 3b
+
+
+	#undef ADDR_PTR
+	#undef INGT_PTR
+	#undef SHFL_CNT
+	#undef TEMP_QWD
+	#undef TEMP_DWD
+	#undef READ_QWD
+	#undef READ_DWD
+	#undef READ_LOW
+	#undef RESL_REG
+	#undef COMP_RES
+	#undef NULL_RES
+
+
+addr_inet_port_to_netbyteorder:
+	#define PORT_REG CABI_AG0
+	#define RESL_REG CABI_RET
+	#define RESL_HIB ACCM_HIB
+	#define RESL_LOB ACCM_LOB
+
+
+	movq PORT_REG, RESL_REG
+	xchgb RESL_HIB, RESL_LOB
+
+	ret
+
+	#undef PORT_REG
+	#undef RESL_REG
