@@ -1,0 +1,15 @@
+#define GLOBVAR_stdin 0
+#define GLOBVAR_stdout 1
+#define GLOBVAR_stderr 2
+#define GLOBVAR_inet 2
+#define GLOBVAR_inet6 10
+#define GLOBVAR_prot_read 1
+#define GLOBVAR_prot_write 2
+#define GLOBVAR_prot_exec 4
+#define GLOBVAR_prot_rwx 7
+#define GLOBVAR_map_shared 1
+#define GLOBVAR_map_anonymous 32
+#define GLOBVAR_map_shared_anonymous 33
+#define GLOBVAR_ascii_zero 48
+#define GLOBVAR_ascii_nine 57
+#define GLOBVAR_ascii_period 46

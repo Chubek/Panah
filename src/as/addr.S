@@ -14,9 +14,13 @@ addr_inet_address_to_netbyteorder:
 	xorq RESL_REG, RESL_REG
 1:
 	movzbl (ADDR_PTR), READ_DWD
+	cmpq GLOBVAR_ascii_nine, READ_QWD
+	jg 4f
 	testq READ_QWD, READ_QWD
 	jz 3f
 	subq GLOBVAR_ascii_zero, READ_QWD
 	js 2f
 
-	shlq GLOBVAR_decamul_shl1, RESL_REG
+	MULT_BY_TEN_QUAD(RESL_REG, TEMP_QWD)
+	addq READ_QWD, RESL_REG
+	jmp 1b

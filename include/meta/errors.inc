@@ -1,0 +1,2 @@
+#define EINVALIDCHR -1
+#define EINVALIDADDR -2
