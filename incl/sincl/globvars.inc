@@ -10,3 +10,8 @@
 #define GLOBVAR_map_shared $1
 #define GLOBVAR_map_anonymous $32
 #define GLOBVAR_map_shared_anonymous $33
+#define GLOBVAR_ascii_zero $48
+#define GLOBVAR_ascii_nine $57
+#define GLOBVAR_ascii_period $46
+#define GLOBVAR_decamul_shl1 $1
+#define GLOBVAR_decamul_shl3 $3
