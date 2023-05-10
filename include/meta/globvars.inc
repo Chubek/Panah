@@ -13,3 +13,7 @@
 #define GLOBVAR_ascii_zero 48
 #define GLOBVAR_ascii_nine 57
 #define GLOBVAR_ascii_period 46
+#define GLOBVAR_inetaddr_maxlen 14
+#define GLOBVAR_max_u32 0xffffffff
+#define GLOBVAR_upper_u16 0xff00
+#define GLOBVAR_upper_u64 0xffffffff00000000

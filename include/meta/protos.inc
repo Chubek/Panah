@@ -3,3 +3,4 @@
 	shlq $3, reg;						\
 	shlq $1, temp;						\
 	addq temp, reg;
+	
