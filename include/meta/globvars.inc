@@ -3,6 +3,10 @@
 #define GLOBVAR_stderr 2
 #define GLOBVAR_inet 2
 #define GLOBVAR_inet6 10
+#define GLOBVAR_sock_stream 1
+#define GLOBVAR_sock_dgram 2
+#define GLOBVAR_proto_default 0
+#define GLOBVAR_size_sockaddr_in 16
 #define GLOBVAR_prot_read 1
 #define GLOBVAR_prot_write 2
 #define GLOBVAR_prot_exec 4
@@ -17,3 +21,9 @@
 #define GLOBVAR_max_u32 0xffffffff
 #define GLOBVAR_upper_u16 0xff00
 #define GLOBVAR_upper_u64 0xffffffff00000000
+#define GLOBVAR_dns_rtype_a 1
+#define GLOBVAR_dns_rtype_aaaa 28
+#define GLOBVAR_dns_opcode_squery 0
+#define GLOBVAR_dns_stock_flags 256
+#define GLOBVAR_dns_stock_qsingle 281474976710656
+#define GLOBVAR_dns_datagram_len 512

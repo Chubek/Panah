@@ -9,6 +9,17 @@
 #define SYSCNR_brk 12
 #define SYSCNR_rt_sigaction 13
 #define SYSCNR_getpid 39
+#define SYSCNR_socket 41
+#define SYSCNR_connect 42
+#define SYSCNR_accept 43
+#define SYSCNR_sendto 44
+#define SYSCNR_recvfrom 45
+#define SYSCNR_sendmsg 46
+#define SYSCNR_recvmsg 47
+#define SYSCNR_shutdown 48
+#define SYSCNR_bind 49
+#define SYSCNR_listen 50
+#define SYSCNR_clone 56
 #define SYSCNR_fork 57
 #define SYSCNR_exit 60
 #define SYSCNR_wait4 61
