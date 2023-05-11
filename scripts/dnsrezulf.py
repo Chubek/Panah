@@ -229,7 +229,7 @@ def parse_server_response(response: bytearray, xid: c_ushort, recursion=RECURSE_
 	elif header.rcode:
 		return -header.rcode          	# we sign-extend the rcode if it is non-zero and return it
 	record = decode_dns_query_resource_record(response)
-	return record.rdata            		# we return the rdata, other parts are not desired
+	return record
 
 
 # Part D: Resolver
@@ -267,3 +267,89 @@ class DNSResolver:
 		self.socket.close()
 
 
+if __name__ == "__main__":
+	from sys import argv, executable
+	execname = executable.split("/")[-1]
+	scriptname = argv[0]
+	argv = argv[1:]
+
+	params = {
+		"resolver": ["--resolver", "-rs"],
+		"port": ["--port", "-p"],
+		"address": ["--address", "-ad"],
+		"rectype": ["--rectype", "-rr"],
+		"recursion": ["--recursion", "-re"],
+	}
+
+	if "--help" in argv or "-h" in argv:
+		print("\033[1;33mDNSRezulf by Chubak Bidpaa\033[0m")
+		print("\033[1m[Long Param/Short Param] | Purpose | Default Value\033[0m")
+		print("[--resolver/-rs] | DNS Resolver Server | 8.8.8.8")
+		print("[--port/-p] | DNS Resolver Port | 53")
+		print("[--address/-ad] | Address to Resolver | example.com")
+		print("[--rectype|-rr] | RR Type | A")
+		print("[--recursion/-rr] | Recursive Search? | 1")
+		print(f"Example: {execname} {scriptname} -ad google.com --rectype AAAA")
+		exit(1)
+
+	args = {	
+		"resolver": "8.8.8.8",
+		"port": "53",
+		"address": "example.com",
+		"rectype": "A",
+		"recursion": "1"
+	}
+	all_params = sum(params.values(), [])
+	skip = False
+	for arg in argv:
+		if skip:
+			args[skip] = arg
+			skip = False
+			continue
+		if arg in all_params:
+			for k, v in params.items():
+				if arg in v:
+					skip = k
+		else:
+			error_out(f"Illegal parameter: {arg}")
+
+
+	if not args["port"].isdigit():
+		error_out("Port must be digits")
+	port = int(args["port"])
+	if port < 0 or port > MAXU16:
+		error_out("Port must be between 0 and 65535")
+
+	resolver = args["resolver"]
+	address = args["address"].encode("ascii")
+	rectype = args["rectype"]
+
+	if rectype == "A":
+		rectype = RECORD_A
+	elif rectype == "AAAA":
+		rectype = RECORD_AAAA
+	elif rectype == "CNAME":
+		rectype = RECORD_CNAME
+	else:
+		error_out("Wrong record type")
+
+	recursion = args["recursion"]
+	if recursion not in ["1", "0"]:
+		error_out("Recursion must be 0 or 1")
+	recursion = bool(recursion)
+
+	dnsresolver = DNSResolver(resolver, port)
+	dnsresolver.connect_to_resolver()
+	record = dnsresolver.send_and_receive_query(address, rectype, recursion)
+	dnsresolver.close_connection()
+
+	data = record.rdata
+	ttl = record.ttl
+	address = address.decode()
+
+	if rectype == RECORD_A:
+		print(f"\t{address} | A | {ttl} | {'.'.join([str(c) for c in data])}")
+	elif rectype == RECORD_AAAA:
+		print(f"\t{address} | AAAA | {ttl} | {':'.join([str(c) for c in data])}")
+	else:
+		print(f"\t{address} | CNAME | {ttl} | {data}")
