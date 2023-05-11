@@ -16,37 +16,26 @@ from time import time_ns
 
 # Part A: Globals & Utils
 
-MAXU16  	= 65535  		# maximum of u16
-ACIIPERIOD  = 46			# ascii for period
+MAXU16  	= 65535  				    # maximum of u16
+ACIIPERIOD  = 46					    # ascii for period
 
-QUERY 		= 0				# marks if query
-RESPONSE 	= 1				# marks if response
-SQUERY 		= 0				# marks standard query
-AUTHQUERY	= 1				# marks if authorative response
-TRUNC 		= 1				# marks if response is truncated
-RECURDESIRE = 1				# marks if recursion is desired
-RECURNOTDES	= 0				# marks if recursion is not desired
-RECURAVAIL  = 1				# marks if recursion is available
-RECURNOTAV  = 0				# marks if recursion is not available
-ZERO       	= 0				# marks the zero preserved field
-NOERR		= 0				# marks no error
-FROMATERR 	= 1				# marks format error 
-SERVERFAIL  = 2				# marks server failure
-NAMEERR	    = 3				# marks name error
-NOTIMPLMNT  = 4				# marks not implemented error
-REFUSED     = 5				# marks refused error
-INTERNET    = 1				# marks internet class
-ARECORD     = 1				# marks A record type
-CNAMERECORD = 5				# marks CNAME record type
-TXTRECORD   = 16			# marks TXT record type
-AAAARECORD  = 28			# marks AAAA record type
+RECURSE_DESIRED 		= 1			    # setting this flag means we want recursive lookup
 
-ERRXIDMATCH = -1			# error for xid match
-ERRSERVER 	= -2			# error for server fail
-ERRNAME		= -3			# error for name
-ERRFORMAT  	= -4			# error for format
-ERRRECUR 	= -5			# error for recursion
-ERRUNKNOWN  = -6			# error for other errors
+RCODE_FORMATERROR 		= -1			# these are the 5 return codes of a dns query 
+RCODE_SERVREFAIL  		= -2			# format and name error, server fail, implementation issues
+RCODE_NAMEERROR 		= -3			# and refused error, you can view all these in RFC 1035 page
+RCODE_NOTIMPLEMENTED  	= -4			# 27 --- notice that these are not signed, however, we sign them
+RCODE_REFUSED     		= -5			# because we wish to return them as signed values in case of error
+
+ERROR_XIDMATCH			= -6			# these two are the additional errors we wish to add
+ERROR_NORECURSION		= -7			# xid mismatch, and no recursion being available in resolver
+
+RCLASS_INTERNET    		= 1				# this is the resource class for internet, we will set it as default for obvious reasosn
+QCLASS_ANY				= 255			# this is the 'any' question class, we'll set it as default
+
+RECORD_CNAME 			= 5				# marks CNAME record type
+RECORD_A   				= 16			# marks TXT record type
+RECORD_AAAA  			= 28			# marks AAAA record type
 
 
 def generate_random_ushort():
@@ -92,18 +81,18 @@ class DNSQueryHeader:
 class DNSQueryQuestion:
 	qname  = b""			# variable, name of the desired domain, null-terminated
 	qtype  = 0				# type of the question, 16-bit unsigned
-	qclass = 0 				# class of the question, 16-bit unsigned
+	qclass = QCLSS_ANY 		# class of the question, 16-bit unsigned
 
 # this is format of a response resource record, there can be several, but we'll just send one
 
 @dataclass
 class DNSResourceRecord:
-	name      = b""			# variable, human-readable name of the domain
-	rtype     = 0  			# unsigned 16-bit integer, type of the resource
-	rclass    = 0			# unsigned 16-bit integer, class of the resource
-	ttl    	  = 0    		# unsigned 16-bit integer, time interval until caching is valid
-	rdlength  = 0 			# unsigned 16-bit integer, length of rdata
-	rdata     = b""	   		# variable, the data, for A and AAA it's the IPV4 and IPV6
+	name      = b""						# variable, human-readable name of the domain
+	rtype     = 0  						# unsigned 16-bit integer, type of the resource
+	rclass    = RCLASS_INTERNET			# unsigned 16-bit integer, class of the resource
+	ttl    	  = 0    					# unsigned 16-bit integer, time interval until caching is valid
+	rdlength  = 0 						# unsigned 16-bit integer, length of rdata
+	rdata     = b""	   					# variable, the data, for A and AAA it's the IPV4 and IPV6
 
 # Part C: DNS Query Protocol
 
@@ -129,11 +118,11 @@ def encode_dns_addr(addr: bytearray) -> bytearray:
 def new_dns_query_question(addr: str, qtype=ARECORD) -> bytearray:
 	qname = encode_dns_addr(addr)
 	qclass = INTERNET
-	return DNSQueryQuestion(qname=qname, qtype=qtype, qclass=qclass)
+	return DNSQueryQuestion(qname=qname, qtype=qtype)
 
 # make a new header object
 
-def new_dns_query_header(rd=RECURDESIRE):
+def new_dns_query_header(rd=RECURSE_DESIRED):
 	return DNSQueryHeader(xid=generate_random_ushort(), rd=rd)
 
 # encode the query header, as specified by the RFC
@@ -198,34 +187,26 @@ def decode_dns_query_resource_record(response: bytearray) -> DNSResourceRecord:
 	ttl = int.from_bytes(response[idx + 4:idx + 6], byteorder="big", signed=False)
 	rdlength = int.from_bytes(response[idx + 6:idx + 8], byteorder="big", signed=False)
 	rdata = response[idx + 8:idx + rdlength]
-	
 	return DNSResourceRecord(name=name, rtype=rtype, rclass=rclass, ttl=ttl, rdlength=rdlength, rdata=rdata)
 
 
-def generate_and_compose_query(address: str, rectype=ARECORD, recursive=RECURDESIRE) -> tuple[bytes, int]:
+def generate_and_compose_query(address: str, rectype=ARECORD, recursive=RECURSE_DESIRED) -> tuple[bytes, int]:
 	header = new_dns_query_header(recursive)
 	question = new_dns_query_question(address, rectype)
 	return encode_dns_query_packet(header, question), header.xid
 
 
-def parse_server_response(response: bytearray, xid: int, recursion=RECURDESIRE) -> bytes:
+def parse_server_response(response: bytearray, xid: int, recursion=RECURSE_DESIRED) -> bytes:
 	header = decode_dns_query_header(response)
 	# check for errors in response
 	if header.xid != xid:
-		return ERRXIDMATCH					# the XID given does not match with XID returned
+		return ERROR_XIDMISMATCH		# the XID given does not match with XID returned
 	if header.ra != recursion:
-		return ERRRECUR						# if we have set recursion to true, and server does not support it
-	if header.rcode != NOERR:
-		if header.rcode == SERVERFAIL:      # server fail
-			return ERRSERVER
-		elif header.rcode == NAMEERR:       # name error
-			return ERRNAME				
-		elif header.rcode == FORMATERROR:   # format error
-			return ERRFORMAT
-		else:
-			return -1 * header.rcode        # we just check for the most common errors. We sign-extend the other non-compliant rcodes and return them
+		return ERROR_NORECURSION		# if we have set recursion to true, and server does not support it
+	if not header.rcode:
+		return -header.rcode          	# we sign-extend the rcode if it is non-zero and return it
 	record = decode_dns_query_resource_record(response)
-	return record.rdata            			# we return the rdata, other parts are not desired
+	return record.rdata            		# we return the rdata, other parts are not desired
 
 
 # Part D: Resolver
@@ -241,7 +222,7 @@ class DNSResolver:
 	def connect_to_resolver(self):
 		self.socket.connect(self.resolver, self.port)						# connect to the socket
 
-	def send_and_receive_query(self, addr: str, rectype=ARECORD, recursion=RECURDESIRE, retries=3) -> bytes:
+	def send_and_receive_query(self, addr: str, rectype=ARECORD, recursion=RECURSE_DESIRED, retries=3) -> bytes:
 		packet, xid = generate_and_compose_query(addr, rectype, recursion)  # generate the packet
 		lenpaacket = len(packet)
 		sent = self.socket.send(packet)										# send the packet
@@ -268,15 +249,15 @@ if __name__ == "__main__":
 
 	options = []										# we pre-declare the options list because we wanna reference it to print_help_and_exit
 	
-	def choose_record_type(_, rectype: str) -> int:	# this function parses the record type
+	def choose_record_type(_, rectype: str) -> tuple[int, str, callable]:	# this function parses the record type
 		if rectype == "A":
-			return ARECORD, "A"
+			return RECORD_A, "A", uint_to_inet_str
 		elif rectype == "AAAA":
-			return AAAARECORD, "AAAA"
+			return RECORD_AAAA, "AAAA", int
 		elif rectype == "CNAME":
-			return CNAMERECORD, "CNAME"
+			return RECORD_CNAME, "CNAME", str
 		else:
-			error_out("Wrong record type, can only be A, AAAA, or CNAEM")
+			error_out("Wrong record type, can only be A, AAAA, or CNAME")
 
 	def choose_recursion(rec: bool) -> int:				# this function parses the recursion flag
 		if rec:
@@ -309,7 +290,6 @@ if __name__ == "__main__":
 		print(execname, scriptname, "--record-type AAAA")
 		exit(1)
 
-
 													# arguments/options in form (long, short, default, parser, help)
 	options = [
 		("--address", "-ad", "example.com", set_string_option, "The address to resolve"),
@@ -321,17 +301,16 @@ if __name__ == "__main__":
 		("--help", "-h", "N/A", print_help_and_exit, "Show help")
 
 	]
-
 													  # this function parses the arguments, based on the following argument
 													  # we must give it one of the flag list members, expanded with asterisk
-	def parse_arg_or_default(arg, next_arg, long, short, default, func, _, __):
+	def parse_arg_or_default(arg, next_arg, long, short, default, func, _):
 		if arg == long or arg == short:
 			return func(arg, next_arg)
 		else:
 			return func(None, default)
 
 													  # same as before, except it does not take the next argument, since it's a flipper
-	def parse_flag_or_default(arg, long, short, defualt, func, _, __):
+	def parse_flag_or_default(arg, long, short, default, func, _):
 		if arg == long or arg == short:
 			return func(True)						  # if the flag has been passed, this means it's true
 		else:
@@ -342,8 +321,8 @@ if __name__ == "__main__":
 	for arg, next_arg in zip(argv[::2], argv[1::2]):  # we zip even and odd members of argv
 		address = parse_arg_or_default(arg, next_arg, *options[0])
 		resolver = parse_arg_or_default(arg, next_arg, *options[1])
-		port = parse_arg_or_default(arg, next_arg, options[2])
-		rectype, strrectype = parse_arg_or_default(arg, next_arg, options[3])
+		port = parse_arg_or_default(arg, next_arg, *options[2])
+		rectype, recstr, recfunc = parse_arg_or_default(arg, next_arg, *options[3])
 		recursion = parse_flag_or_default(arg, *options[4])
 		retries = parse_arg_or_default(arg, next_arg, *options[5])
 		_ = parse_arg_or_default(arg, *options[6])
@@ -359,23 +338,22 @@ if __name__ == "__main__":
 	# checking for errors that we set before in case of something going wrong	
 
 	if data < 0:
-		if data == ERRXIDMATCH:
+		if data == ERROR_XIDMISMATCH:
 			error_out("XID match error")
-		elif data == ERRFORMAT:
+		elif data == ERROR_NORECURSION:
+			error_out("Resolver has no recursion available")
+		elif data == RCODE_FORMATERROR:
 			error_out("Format error")
-		elif data == ERRNAME:
+		elif data == RCODE_NAMEERROR:
 			error_out("Name error")
-		elif data == ERRRECUR:
-			error_out("Recursion match error")
-		elif data == ERRSERVER:
-			error_out("Server error")
+		elif data == RCODE_REFUSED:
+			error_out("Server refused connection")
+		elif data == RCODE_NOTIMPLEMENTED:
+			error_out("Server does not have this feature implemented")
+		elif data == RCODE_SERVERFAIL:
+			error_out("Server responded with a FAIL message")
 		else:
-			error_out(f"Unknown error: {data}")
+			error_out("Server responded with an unknown response code")
 
 
-	if strrectype == "A":
-		print(f"{strrectype}\t\t|{uint_to_inet_str(int(data))}")
-	elif strrectype == "CNAME":
-		print(f"{strrectype}\t\t|{data}")
-	else:
-		print(f"{strrectype}\t\t|{int(data)}")
+	print(f"{recstr}\t|\t{recfunc(data)}")
