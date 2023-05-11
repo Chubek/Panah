@@ -48,6 +48,11 @@ def generate_random_ushort():
 	seed = time_ns()
 	return ((seed << 5) + seed) % MAXU16
 
+def error_out(message: str):
+	print("\033[1;31mError occured\033[0m")
+	print(message)
+	exit(1)
+
 # Part B: Types
 
 # this is the header for both response and question
@@ -106,6 +111,18 @@ def encode_dns_addr(addr: bytearray) -> bytearray:
 	qname.append(0)				# we must null-terminate
 	return qname
 
+# simple, make a new question object
+
+def new_dns_query_question(addr: str, qtype=ARECORD) -> bytearray:
+	qname = encode_dns_addr(addr)
+	qclass = INTERNET
+	return DNSQueryQuestion(qname=qname, qtype=qtype, qclass=qclass)
+
+# make a new header object
+
+def new_dns_query_header(rd=RECURDESIRE):
+	return DNSQueryHeader(xid=generate_random_ushort(), rd=rd)
+
 # encode the query header, as specified by the RFC
 # the flags are 16-bits, and as the net byte order goes, big-endian
 
@@ -119,12 +136,10 @@ def encode_dns_query_header(header: DNSQueryHeader) -> bytearray:
 	return xid + flags + qdcount + ancount + nscount + arcount
 
 
-# encoding the header is simple since we already have the address encoder
-
-def encode_dns_query_question(addr: str, qtype=ARECORD) -> bytearray:
-	qname = encode_dns_addr(addr)
-	qclass = INTERNET
-	return DNSQueryQuestion(qname=qname, qtype=qtype, qclass=qclass)
+def encode_dns_query_question(question: DNSQueryQuestion):
+	qtype = question.qtype.to_bytes(2, byteorder="big")
+	qclass = question.qclass.to_bytes(2, byteorder="big")
+	return question.qname + qtype + qclass
 
 # encode the final packet for request
 
@@ -174,3 +189,51 @@ def decode_dns_query_resource_record(response: bytearray) -> DNSResourceRecord:
 	return DNSResourceRecord(name=name, rtype=rtype, rclass=rclass, ttl=ttl, rdlength=rdlength, rdata=rdata)
 
 
+def generate_and_compose_query(address: str, rectype=ARECORD, recursive=RECURDESIRE) -> tuple[bytes, int]:
+	header = new_dns_query_header(recursive)
+	question = new_dns_query_question(address, rectype)
+	return encode_dns_query_packet(header, question), header.xid
+
+
+def parse_server_response(response: bytearray, xid: int) -> bytes:
+	header = decode_dns_query_header(response)
+	if header.xid != xid:
+		error_out("XIDs did not match")
+	if header.rcode != NOERR:
+		if header.rcode == SERVERFAIL:
+			error_out("Server failure")
+		elif header.rcode == NAMEERR:
+			error_out("Name error")
+		elif header.rcode == FORMATERROR:
+			error_out("Format error")
+		else:
+			print(f"Undesired rcode: {header.rcode}")
+	record = decode_dns_query_resource_record(response)
+	return record.rdata
+
+
+# Part D: Resolver
+
+class DNSResolver:
+	def __init__(self, resolver="8.8.8.8", port=53):
+		self.resolver = resolver
+		self.port = port
+		self.socket = socket(AF_INET, SOCK_DGRAM)
+
+	def connect_to_resolver(self):
+		self.socket.connect(self.resolver, self.port)
+
+	def send_and_receive_query(self, addr: str, rectype=ARECORD, recursion=RERURDESIRE, retries=3) -> bytes:
+		packet, xid = generate_and_compose_query(addr, rectype, recursion)
+		lenpaacket = len(packet)
+		sent = self.socket.send(packet)
+		while sent != lenpacket and retries > 0:
+			sent = self.socket.send(packet)
+		response = []
+		while True:
+			received_data = self.recv(1024)
+			if received_data is None:
+				break
+			response.extend(received_data)
+
+		return parse_server_response(response)
