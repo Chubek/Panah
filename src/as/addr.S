@@ -96,3 +96,4 @@ addr_inet_port_to_netbyteorder:
 	#undef RESL_REG
 	#undef RESL_HIB
 	#undef RESL_LOB
+
