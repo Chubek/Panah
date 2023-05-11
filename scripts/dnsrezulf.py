@@ -39,6 +39,10 @@ TXTRECORD   = 16			# marks TXT record type
 AAAARECORD  = 28			# marks AAAA record type
 MAXU16  	= 65535  		# maximum of u16
 ACIIPERIOD  = 46			# ascii for period
+ERRNOXID 	= -1			# error for non-matching XID
+ERRNOREC	= -2 			# error for no recursion available
+ERRSERVER   = -3   			# error for server fail
+ERRANSER 	= -4			# error for answer
 
 def generate_random_ushort():
 	seed = time_ns()
@@ -57,7 +61,7 @@ class DNSQueryHeader:
 	tc					# has it be truncated? one bit
 	rd					# only in question, is recursion desired? --- one bit
 	ra					# only in response, is recursion available? --- one bit
-	z					# always set to 0 --- one bit
+	z					# always set to 0 --- three bits
 	rcode				# response code, 4 bits
 	qdcount   			# 16-bit unsigned, question count
 	ancount   			# 16-bit unsigned, answer count
@@ -85,7 +89,9 @@ class DNSResourceRecord:
 
 # Part C: DNS Query Protocol
 
-# qnames in DNS are in form: <len>, <block>, <len>, <block>, ... where each block is separated by period in name
+# this function will encode the dns address to (len, section, len, section..., NULL) form as specified by the RFC
+# basically every section is separated by period (46 ascii) and they must come separated with their length before them
+# we then must null-terminate the bytestring
 
 def encode_dns_addr(addr: bytearray) -> bytearray:
 	qname = bytearray(0)
@@ -100,32 +106,71 @@ def encode_dns_addr(addr: bytearray) -> bytearray:
 	qname.append(0)				# we must null-terminate
 	return qname
 
-# this function is simple, we just set the parameters for header and generate a question
+# encode the query header, as specified by the RFC
+# the flags are 16-bits, and as the net byte order goes, big-endian
 
-def new_dns_query(addr: str, rectype=ARECORD, recursion=RECURDESIRE) -> tuple[DNSQueryHeader, DNSQueryQuestion]:
-	xid = generate_random_ushort()
-	qr = QUERY
-	opcode = SQUERY
-	rd = recursion
-	qdcount = 1
-	qname = encode_dns_addr(addr)
-	qtype = rectype
-	qclass = INTERNET
-	header = DNSQueryHeader(xid=xid, qr=qr, opcode=opcode, rd=rd, qdcount=qdcount)
-	query = DNSQueryQuestion(qname=qname, qtype=qtype, qclass=qclass)
-	return header, query
-
-# this function will encode dns query header & question
-
-def encode_query_to_bytes(header: DNSQueryHeader, question: DNSQueryQuestions) -> bytes:
+def encode_dns_query_header(header: DNSQueryHeader) -> bytearray:
 	xid = header.xid.to_bytes(2, byteorder="big")
 	flags = ((header.qr & 0b1) | ((header.opcode << 15) & 0b1111) | ((header.aa << 11) & 0b1) | ((header.tc << 10) & 0b1) | (header.rd << 9) | ((header.ra << 8) & 0b1) | ((header.z << 7) & 0b1111) | (header.rcode & 0b11111)).to_bytes(2, byteorder='big')
 	qdcount = header.qdcount.to_bytes(2, byteorder='big')
 	ancount = header.anqount.to_bytes(2, byteorder='big')
 	nscount = header.nscount.to_bytes(2, byteorder='big')
 	arcount = header.arcount.to_bytes(2, byteorder='big')
-	qname = question.qname
-	qtype = question.qtype.to_bytes(2, byteorder='big')
-	qclass = question.qclass.to_bytes(2, byteorder='big')
-	return xid + flags + qdcount + ancount + nscount + arcount + qname + qtype + qclass
+	return xid + flags + qdcount + ancount + nscount + arcount
+
+
+# encoding the header is simple since we already have the address encoder
+
+def encode_dns_query_question(addr: str, qtype=ARECORD) -> bytearray:
+	qname = encode_dns_addr(addr)
+	qclass = INTERNET
+	return DNSQueryQuestion(qname=qname, qtype=qtype, qclass=qclass)
+
+# encode the final packet for request
+
+def encode_dns_query_packet(header: DNSQueryHeader, question: DNSQueryQuestion) -> bytearray:
+	return encode_dns_query_header(header) + encode_dns_query_question(question)
+
+# decoding the header is similiar to encoding the header, we just have to reverse the flag and turn bytes into integers instead
+
+def decode_dns_query_header(response: bytes) -> DNSQueryHeader:
+	xid = int.from_bytes(response[:2], byteorder="big", signed=False)
+	flags = int.from_bytes(response[2:4], byteorder="big", signed=False)
+	qr = (flags & 32768) >> 15
+	opcode = (flags & 32720) >> 11
+	aa = (flags & 1024) >> 10
+	tc = (flags & 256) >> 9
+	rd = (flags & 128) >> 8
+	ra = (flags & 64) >> 7
+	z  = (flags & 0b1110000) >> 4
+	rcode = (flags & 15)
+	qdcount = int.from_bytes(response[4:6], byteorder="big", signed=False)
+	ancount = int.from_bytes(response[6:8], byteorder="big", signed=False)
+	nscount = int.from_bytes(response[8:10], byteorder="big", signed=False)
+	arcount = int.from_bytes(response[10:12], byteorder="big", signed=False)
+	return DNSQueryHeader(xid=xid, qr=qr, opcode=opcode, aa=aa, tc=tc, rd=rd, ra=ra, z=z, rcode=rcode, qdcount=qdcount, ancount=ancount, nscount=nscount, arcount=arcount)
+
+
+# decoding the dns query record is partly similar to the encoding of address
+# we must start at byte 12, and add the bytes to our address name until we hit zero
+# we then decode type, class and ttl
+# after that, we get the length, and grab from that point on, plus rdlength
+# that will give us our data
+
+def decode_dns_query_resource_record(response: bytearray) -> DNSResourceRecord:
+	name = bytearray()
+	for i, c in enumerate(response[12:]):
+		if c == 0:
+			break
+		name.append(c)
+
+	idx = 12 + i
+	rtype = int.from_bytes(response[idx:idx + 2], byteorder="big", signed=False)
+	rclass = int.from_bytes(response[idx + 2:idx + 4], byteorder="big", signed=False)
+	ttl = int.from_bytes(response[idx + 4:idx + 6], byteorder="big", signed=False)
+	rdlength = int.from_bytes(response[idx + 6:idx + 8], byteorder="big", signed=False)
+	rdata = response[idx + 8:idx + rdlength]
+	
+	return DNSResourceRecord(name=name, rtype=rtype, rclass=rclass, ttl=ttl, rdlength=rdlength, rdata=rdata)
+
 
