@@ -16,8 +16,9 @@ from ctypes import c_ushort, c_uint
 
 # Part A: Globals & Utils
 
-MAXU16  	= 65535  				    # maximum of u16
-ASCIIPERIOD  = 46					    # ascii for period
+MAXU16  				= 65535  		# maximum of u16
+ASCII_PERIOD  			= 46			# ascii for period
+LEN_HEADER   			= 12			# length of DNS query header
 
 RECURSE_DESIRED 		= 1			    # setting this flag means we want recursive lookup
 RECURSE_UNDESIRED  		= 0 			# and this means recurse is undesired
@@ -64,14 +65,6 @@ def error_out(message: str):
 	print(message)
 	exit(1)
 
-
-def uint_to_inet_str(inet: c_uint) -> str:
-	inet = inet.value
-	quart_upper_upper = inet & 0xff000000
-	quart_upper_lower = inet & 0xff0000
-	quart_lower_upper = inet & 0xff00
-	quart_lower_lower = inet & 0xff
-	return f"{quart_lower_lower}.{quart_lower_upper >> 8}.{quart_upper_lower >> 16}.{quart_upper_upper >> 24}"
 
 # Part B: Types
 
@@ -122,7 +115,7 @@ def encode_dns_addr(addr: bytearray) -> bytearray:
 	qname = bytearray([0])
 	idxcntr = 0
 	for i, c in enumerate(addr):
-		if c == ASCIIPERIOD:
+		if c == ASCII_PERIOD:
 			qname.append(0)
 			idxcntr = i + 1	 	# in case we hit a period, we append a zero which will be the length of the new
 			continue			# section and we set the index of counter to it, then we continue
@@ -201,18 +194,22 @@ def decode_dns_query_header(response: bytes) -> DNSQueryHeader:
 # that will give us our data
 
 def decode_dns_query_resource_record(response: bytearray) -> DNSResourceRecord:
-	name = bytearray()
-	for i, c in enumerate(response[12:]):
-		if c == 0:
+	idx = LEN_HEADER
+	byte = 255
+	name = bytearray([])
+	while True:
+		if byte == 0:
 			break
-		name.append(c)
-
-	idx = 12 + i
-	rtype = int.from_bytes(response[idx:idx + 2], byteorder="big", signed=False)
-	rclass = int.from_bytes(response[idx + 2:idx + 4], byteorder="big", signed=False)
-	ttl = int.from_bytes(response[idx + 4:idx + 6], byteorder="big", signed=False)
-	rdlength = int.from_bytes(response[idx + 6:idx + 8], byteorder="big", signed=False)
-	rdata = response[idx + 8:idx + rdlength]
+		idx += 1
+		name.append(byte)
+		byte = response[idx]
+	idx += 7
+	response = response[idx:]
+	rtype = int.from_bytes(response[:2], byteorder="big", signed=False)
+	rclass = int.from_bytes(response[2:4], byteorder="big", signed=False)
+	ttl = int.from_bytes(response[4:8], byteorder="big", signed=True)
+	rdlength = int.from_bytes(response[8:10], byteorder="big", signed=False)
+	rdata = response[10:10 + rdlength]
 	return DNSResourceRecord(name=name, rtype=rtype, rclass=rclass, ttl=ttl, rdlength=rdlength, rdata=rdata)
 
 
@@ -227,10 +224,9 @@ def parse_server_response(response: bytearray, xid: c_ushort, recursion=RECURSE_
 	# check for errors in response
 	if header.xid != xid:
 		return ERROR_XIDMISMATCH		# the XID given does not match with XID returned
-	print(header, recursion)
-	if header.ra != recursion:
+	elif header.ra != recursion:
 		return ERROR_NORECURSION		# if we have set recursion to true, and server does not support it
-	if not header.rcode:
+	elif header.rcode:
 		return -header.rcode          	# we sign-extend the rcode if it is non-zero and return it
 	record = decode_dns_query_resource_record(response)
 	return record.rdata            		# we return the rdata, other parts are not desired
@@ -277,16 +273,17 @@ if __name__ == "__main__":
 	from sys import argv, executable
 	execname = executable.split("/")[-1]
 	scriptname = argv[0]
+	argc = len(argv)
 
 	options = []										# we pre-declare the options list because we wanna reference it to print_help_and_exit
 	
 	def choose_record_type(_, rectype: str) -> tuple[int, str, callable]:	# this function parses the record type
 		if rectype == "A":
-			return RECORD_A, "A", lambda d: uint_to_inet_str(c_uint(d))
+			return RECORD_A, "A", lambda d: ".".join([str(b) for b in d])
 		elif rectype == "AAAA":
-			return RECORD_AAAA, "AAAA", int
+			return RECORD_AAAA, "AAAA", ";".join([format(b, "x") for b in d])
 		elif rectype == "CNAME":
-			return RECORD_CNAME, "CNAME", str
+			return RECORD_CNAME, "CNAME",  lambda d: d.decode('ascii')
 		else:
 			error_out("Wrong record type, can only be A, AAAA, or CNAME")
 
@@ -349,7 +346,8 @@ if __name__ == "__main__":
 		else:
 			return func(default)
 
-	argv.append(None)								  # we must append a dummy to argv, it has be default one member and we need two to set our options
+	if (argc - 1) % 2 == 0:
+		argv.append(None)							   # we must append a dummy to argv, it has be default one member and we need two to set our options
 
 	for arg, next_arg in zip(argv[::2], argv[1::2]):  # we zip even and odd members of argv
 		address = parse_arg_or_default(arg, next_arg, *options[0])
@@ -370,7 +368,7 @@ if __name__ == "__main__":
 
 	# checking for errors that we set before in case of something going wrong	
 
-	if data < 0:
+	if type(data) == int and data < 0:
 		if data == ERROR_XIDMISMATCH:
 			error_out("XID match error")
 		elif data == ERROR_NORECURSION:
@@ -389,4 +387,4 @@ if __name__ == "__main__":
 			error_out("Server responded with an unknown response code")
 
 
-	print(f"{recstr}\t|\t{recfunc(data)}")
+	print(f"\t{address}\t|\t{recstr}\t|\t{recfunc(data)}")
