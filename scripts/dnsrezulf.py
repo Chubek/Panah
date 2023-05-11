@@ -16,16 +16,19 @@ from time import time_ns
 
 # Part A: Globals & Utils
 
+MAXU16  	= 65535  		# maximum of u16
+ACIIPERIOD  = 46			# ascii for period
+
 QUERY 		= 0				# marks if query
 RESPONSE 	= 1				# marks if response
 SQUERY 		= 0				# marks standard query
 AUTHQUERY	= 1				# marks if authorative response
 TRUNC 		= 1				# marks if response is truncated
 RECURDESIRE = 1				# marks if recursion is desired
-RECURNOTDES				# marks if recursion is not desired
+RECURNOTDES	= 0				# marks if recursion is not desired
 RECURAVAIL  = 1				# marks if recursion is available
-RECURNOTAV 				# marks if recursion is not available
-ZERO       				# marks the zero preserved field
+RECURNOTAV  = 0				# marks if recursion is not available
+ZERO       	= 0				# marks the zero preserved field
 NOERR		= 0				# marks no error
 FROMATERR 	= 1				# marks format error 
 SERVERFAIL  = 2				# marks server failure
@@ -37,12 +40,14 @@ ARECORD     = 1				# marks A record type
 CNAMERECORD = 5				# marks CNAME record type
 TXTRECORD   = 16			# marks TXT record type
 AAAARECORD  = 28			# marks AAAA record type
-MAXU16  	= 65535  		# maximum of u16
-ACIIPERIOD  = 46			# ascii for period
-ERRNOXID 	= -1			# error for non-matching XID
-ERRNOREC	= -2 			# error for no recursion available
-ERRSERVER   = -3   			# error for server fail
-ERRANSER 	= -4			# error for answer
+
+ERRXIDMATCH = -1			# error for xid match
+ERRSERVER 	= -2			# error for server fail
+ERRNAME		= -3			# error for name
+ERRFORMAT  	= -4			# error for format
+ERRRECUR 	= -5			# error for recursion
+ERRUNKNOWN  = -6			# error for other errors
+
 
 def generate_random_ushort():
 	seed = time_ns()
@@ -52,6 +57,14 @@ def error_out(message: str):
 	print("\033[1;31mError occured\033[0m")
 	print(message)
 	exit(1)
+
+
+def uint_to_inet_str(inet: int) -> str:
+	quart_upper_upper = inet & 0xff000000
+	quart_upper_lower = inet & 0xff0000
+	quart_lower_upper = inet & 0xff00
+	quart_lower_lower = inet & 0xff
+	return f"{quart_lower_lower}.{quart_lower_upper >> 8}.{quart_upper_lower >> 16}.{quart_upper_upper >> 24}"
 
 # Part B: Types
 
@@ -195,24 +208,28 @@ def generate_and_compose_query(address: str, rectype=ARECORD, recursive=RECURDES
 	return encode_dns_query_packet(header, question), header.xid
 
 
-def parse_server_response(response: bytearray, xid: int) -> bytes:
+def parse_server_response(response: bytearray, xid: int, recursion=RECURDESIRE) -> bytes:
 	header = decode_dns_query_header(response)
 	if header.xid != xid:
-		error_out("XIDs did not match")
+		return ERRXIDMATCH
+	if header.ra != recursion:
+		return ERRRECUR
 	if header.rcode != NOERR:
 		if header.rcode == SERVERFAIL:
-			error_out("Server failure")
+			return ERRSERVER
 		elif header.rcode == NAMEERR:
-			error_out("Name error")
+			return ERRNAME
 		elif header.rcode == FORMATERROR:
-			error_out("Format error")
+			return ERRFORMAT
 		else:
-			print(f"Undesired rcode: {header.rcode}")
+			return -1 * header.rcode
 	record = decode_dns_query_resource_record(response)
 	return record.rdata
 
 
 # Part D: Resolver
+
+# the resolver interface puts everything we made prior together
 
 class DNSResolver:
 	def __init__(self, resolver="8.8.8.8", port=53):
@@ -223,7 +240,7 @@ class DNSResolver:
 	def connect_to_resolver(self):
 		self.socket.connect(self.resolver, self.port)
 
-	def send_and_receive_query(self, addr: str, rectype=ARECORD, recursion=RERURDESIRE, retries=3) -> bytes:
+	def send_and_receive_query(self, addr: str, rectype=ARECORD, recursion=RECURDESIRE, retries=3) -> bytes:
 		packet, xid = generate_and_compose_query(addr, rectype, recursion)
 		lenpaacket = len(packet)
 		sent = self.socket.send(packet)
@@ -235,5 +252,99 @@ class DNSResolver:
 			if received_data is None:
 				break
 			response.extend(received_data)
+		return parse_server_response(response, xid, recursion)
 
-		return parse_server_response(response)
+	def close_connection(self):
+		self.socket.shutdown()
+
+
+# Part E: Command Line Interface
+
+if __name__ == "__main__":
+	from sys import argv, executable
+	execname = executable.split("/")[-1]
+	scriptname = argv[0]
+	
+	flags = [
+		("--address", "-ad", "example.com", str, "The address to resolve"),
+		("--resolver", "-rs", "8.8.8.8", str, "The DNS resolver"),
+		("--port", "-p", 53, int, "The resolver port"),
+		("--record-type", "-rt", "A", choose_record_type, "The query record (A, AAAA or CNAME)"),
+		("--recursion", "-rc", True, choose_recursion, "Recursion flag (no argument)"),
+		("--help", "-h", "N/A", print_help_and_exit, "Show help")
+
+	]
+
+	def choose_record_type(rectype: str) -> int:
+		if rectype == "A":
+			return ARECORD, "A"
+		elif rectype == "AAAA":
+			return AAAARECORD, "AAAA"
+		elif rectype = "CNAME":
+			return CNAMERECORD, "CNAME"
+		else:
+			error_out("Wrong record type, can only be A, AAAA, or CNAEM")
+
+	def choose_recursion(rec: bool) -> int:
+		if rec:
+			return RECURDERSIRE
+		else:
+			return RECURNOTDES
+
+	def print_help_and_exit(_):
+		argmsg = "\n".join([f"[{l}/{s}]\t{h}\tDefault: {d}" for l, s in [(f[0], f[1], f[4], f[2]) for f in flags]])
+		print("\033[1;33mDNS Resolver by Chubak Bidpaa\033[0m")
+		print("Usage:")
+		print(execname, scriptname, argmsg)
+		print("Example:")
+		print(execname, scriptname, "--record-type AAAA")
+		exit(1)
+
+	def parse_arg_or_default(arg, next_arg, long, short, default, func, _, _):
+		if arg == long or arg == short:
+			return func(next_arg)
+		else:
+			return func(default)
+
+
+	def parse_flag_or_default(arg, long, short, defualt, func, _, _):
+		if arg == long or arg == short:
+			return func(bool(arg))
+		else:
+			return func(default)
+
+	for arg, next_arg in zip(argv[::2], argv[1::2]):
+		address = parse_arg_or_default(arg, next_arg, *flags[0])
+		resolver = parse_arg_or_default(arg, next_arg, *flags[1])
+		port = parse_arg_or_default(arg, next_arg, flags[2])
+		rectype, strrectype = parse_arg_or_default(arg, next_arg, flags[3])
+		recursion = parse_flag_or_default(arg, *flags[4])
+		_ = parse_arg_or_default(arg, *flags[5])
+
+
+	dnsresolver = DNSResolver(resolver, port)
+	dnsresolver.connect_to_resover()
+	data = dnsresolver.send_and_receive_query(rectype, recursion)
+	dnsresolver.close_connection()
+
+	if data < 0:
+		if data == ERRXIDMATCH:
+			error_out("XID match error")
+		elif data == ERRFORMAT:
+			error_out("Format error")
+		elif data == ERRNAME:
+			error_out("Name error")
+		elif data == ERRRECUR:
+			error_out("Recursion match error")
+		elif data == ERRSERVER:
+			error_out("Server error")
+		else:
+			error_out(f"Unknown error: {data}")
+
+
+	if strrectype == "A":
+		print(f"{strrectype}\t\t|{uint_to_inet_str(int(data))}")
+	elif strrectype == "CNAME"
+		print(f"{strrectype}\t\t|{data}")
+	else:
+		print(f"{strrectype}\t\t|{int(data)}")
