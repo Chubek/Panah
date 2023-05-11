@@ -194,7 +194,7 @@ def decode_dns_query_header(response: bytes) -> DNSQueryHeader:
 # that will give us our data
 
 def decode_dns_query_resource_record(response: bytearray) -> DNSResourceRecord:
-	idx = LEN_HEADER
+	idx = LEN_HEADER						# we add length of the header to our cursor
 	byte = 255
 	name = bytearray([])
 	while True:
@@ -203,7 +203,7 @@ def decode_dns_query_resource_record(response: bytearray) -> DNSResourceRecord:
 		idx += 1
 		name.append(byte)
 		byte = response[idx]
-	idx += 7
+	idx += 7								 # we add the question offset to our cursor
 	response = response[idx:]
 	rtype = int.from_bytes(response[:2], byteorder="big", signed=False)
 	rclass = int.from_bytes(response[2:4], byteorder="big", signed=False)
