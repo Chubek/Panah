@@ -1,3 +1,11 @@
+/*
+* the following subroutine makes a dns query
+* it accepts a dns address as a null-terminated string
+* the second argument is a 512-byte array, it can be both statically or dynamically allocated
+* the third argument is the resolver inetaddr_in struct, must have size of 16 bytes
+* for better details of how a dns request works see scripts/dnsrezulf.py
+*/
+
 resolve_dns_inet:
 	#define ADDR_PTR CABI_AG0
 	#define DATA_PTR CABI_AG1
@@ -22,18 +30,18 @@ resolve_dns_inet:
 	#define RETR_WRD ACCM_WRD
 	#define RETR_DWD ACCM_DWD
 
-	pushq ADDR_PTR
+	pushq ADDR_PTR    					/* we push the arguments to stack because we wish to make a syscall */
 	pushq DATA_PTR
 	pushq RESV_PTR
 
-	SYSCALL_THREE_ARGS($SYSCNR_socket, $GLOBVAR_inet, $GLOBVAR_sock_dgram, $GLOBVAR_proto_default)
-	movq SOCK_RES, SOCK_TMP
+	SYSCALL_THREE_ARGS($SYSCNR_socket, $GLOBVAR_inet, $GLOBVAR_sock_dgram, $GLOBVAR_proto_default)	
+	movq SOCK_RES, SOCK_TMP				/* after socket syscall, we save the socket to temp register	   */
 
-	popq RESV_PTR
+	popq RESV_PTR						/* pop back all the saved registers, in reverse order 			   */ 
 	popq DATA_PTR
 	popq ADDR_PTR
 
-	pushq DATA_PTR
+	pushq DATA_PTR						 /* push the values we need to the stack for future use				*/
 	pushq SOCK_TMP
 	pushq SOCK_TMP
 	pushq DATA_PTR
@@ -43,19 +51,19 @@ resolve_dns_inet:
 	pushq RESV_PTR
 	
 
-	rdtsc
+	rdtsc								/* generate the xid for our dns query, see scripts/dnsrezulf.py		*/
 	RANDOM_USHORT(ACCM_REG, SEED_REG, TEMP_QWD)
 	movw XIDR_WRD, (DATA_PTR)
-	addq $2, DATA_PTR
+	addq $2, DATA_PTR					/*  add the header, it just says we want recursion				    */
 	movb $1, (DATA_PTR)
 	addq $3, DATA_PTR
-	movb $1, (DATA_PTR)
-	addq $7, DATA_PTR
+	movb $1, (DATA_PTR)					/* add the number of questions (1)									*/
+	addq $7, DATA_PTR	
 
 	movq $0, CNTR_REG
 	movq $1, TEMP_QWD
-1:
-	movzbl (ADDR_PTR), READ_DWD
+1:										/* the following loop reads the dns address into our query		     */
+	movzbl (ADDR_PTR), READ_DWD			/* again, dnsrezulf.py has better descriptions						 */
 	incq ADDR_PTR
 	testq READ_QWD, READ_QWD
 	jz 3f
@@ -78,25 +86,25 @@ resolve_dns_inet:
 	popq RESV_PTR
 	movq RESV_PTR, TEMP_QWD
 	popq SOCK_TMP
-
+										  /* make a connect syscall with our given GLOBVAR_size_sockaddr_in	   */
 	SYSCALL_THREE_ARGS($SYSCNR_connect, SOCK_TMP, TEMP_QWD, $GLOBVAR_size_sockaddr_in)
 
 	popq DATA_PTR
 	movq DATA_PTR, TEMP_QWD
 	popq SOCK_TMP
-
+										  /* send our query														*/
 	SYSCALL_THREE_ARGS($SYSCNR_write, SOCK_TMP, TEMP_QWD, $GLOBVAR_dns_datagram_len)
 
 	popq DATA_PTR
 	movq $OFST_QWD, CNTR_REG
 	xorq RETR_REG, RETR_REG
-4:
+4:										  /* this loop will clear our data for reading back						*/
 	andq $0, (DATA_PTR, RETR_REG, OFST_QWD)
 	incq RETR_REG
 	loop 4b
 
 	movq DATA_PTR, TEMP_QWD
-	popq SOCK_TMP
+	popq SOCK_TMP						 /* read results back													*/
 	SYSCALL_THREE_ARGS($SYSCNR_read, SOCK_TMP, TEMP_QWD, $GLOBVAR_dns_datagram_len)
  	
 	popq SOCK_TMP
@@ -105,18 +113,18 @@ resolve_dns_inet:
 
 	popq DATA_PTR
 	movzbl 3(DATA_PTR), TEMP_DWD
-	andq $15, TEMP_QWD
+	andq $15, TEMP_QWD					/* read the rcode of response, to see whether it is errenous or not		*/
 
 	testq TEMP_QWD, TEMP_QWD
 	jnz 6f
 
-5:
+5:										/* at this point the data has been read back, next is up to the caller	*/
 	ret
 
 6:
 	xorq RETR_REG, RETR_REG
 	movsx TEMP_LOW, RETR_WRD
-	negl RETR_DWD
+	negl RETR_DWD						/* if rcode != 0, we two-complement the result and return it 			*/
 	jmp 5b
 
 	#undef ADDR_PTR
@@ -138,3 +146,8 @@ resolve_dns_inet:
 	#undef SOCK_TMP
 	#undef SOCK_RES
 	#undef RECV_LEN
+	#undef RECV_LEN
+	#undef RETR_WRD
+	#undef RETR_DWD
+	#undef RETR_LOW 
+	#undef RETR_REG

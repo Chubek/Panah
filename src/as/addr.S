@@ -1,3 +1,9 @@
+/*
+* the following converts a null-terminated IPV4 address into a 32-bit unsigned integer
+* the address is given at argument 0, and the destination at argument 1
+* the destination must be a pointer to memory, 4 bytes in length
+* it can be allocated both statically and dynamically, however, I recommend just passing it pointer to an int
+*/
 addr_inet_address_to_netbyteorder:
 	#define ADDR_PTR CABI_AG0
 	#define INGT_PTR CABI_AG1
@@ -80,6 +86,10 @@ addr_inet_address_to_netbyteorder:
 	#undef NULL_RES
 
 
+/*
+* the following converts a short integer to net byte orderm aka big endian
+* the result is returned in the accumulator
+*/
 addr_inet_port_to_netbyteorder:
 	#define PORT_REG CABI_AG0
 	#define RESL_REG CABI_RET
