@@ -8,7 +8,7 @@
 # please only use for educational/prototyping purposes
 
 # based on RFC 1035: https://datatracker.ietf.org/doc/html/rfc1035
-# also RFC RFC 3596 for AAAA: https://datatracker.ietf.org/doc/html/rfc3596
+# also RFC 3596 for AAAA: https://datatracker.ietf.org/doc/html/rfc3596
 
 from socket import AF_INET, SOCK_DGRAM, socket
 from time import time_ns
