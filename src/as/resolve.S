@@ -1,7 +1,7 @@
 resolve_dns_inet:
 	#define ADDR_PTR CABI_AG0
 	#define DATA_PTR CABI_AG1
-	#define RESV_ADR CABI_AG2
+	#define RESV_PTR CABI_AG2
 	#define READ_QWD CLB1_QWD
 	#define READ_DWD CLB1_DWD
 	#define READ_WRD CLB1_WRD
@@ -13,36 +13,47 @@ resolve_dns_inet:
 	#define CNTR_REG CNTR_QWD
 	#define ACCM_REG ACCM_QWD
 	#define XIDR_WRD ACCM_WRD
+	#define RETR_LOW ACCM_LOB
 	#define RETR_REG CABI_RET
 	#define SEED_REG DATA_QWD
 	#define SOCK_TMP BASE_QWD
 	#define SOCK_RES SYSC_RET
-	#define DPTR_TMP CSV1_QWD
-	#define RESV_TMP CSV2_QWD
+	#define RECV_LEN SYSC_RET
+	#define RETR_WRD ACCM_WRD
+	#define RETR_DWD ACCM_DWD
 
-	pushq DPTR_TMP
-	pushq RESV_TMP
+	pushq ADDR_PTR
+	pushq DATA_PTR
+	pushq RESV_PTR
 
-	xorq ACCM_REG, ACCM_REG
-	xorq CNTR_REG, CNTR_REG
-	xorq TEMP_QWD, TEMP_QWD
-	xorq SEED_REG, SEED_REG
+	SYSCALL_THREE_ARGS($SYSCNR_socket, $GLOBVAR_inet, $GLOBVAR_sock_dgram, $GLOBVAR_proto_default)
+	movq SOCK_RES, SOCK_TMP
 
-	movq DATA_PTR, DPTR_TMP
-	movq RESV_ADR, RESV_TMP
+	popq RESV_PTR
+	popq DATA_PTR
+	popq ADDR_PTR
+
+	pushq DATA_PTR
+	pushq SOCK_TMP
+	pushq SOCK_TMP
+	pushq DATA_PTR
+	pushq SOCK_TMP
+	pushq DATA_PTR
+	pushq SOCK_TMP
+	pushq RESV_PTR
+	
 
 	rdtsc
 	RANDOM_USHORT(ACCM_REG, SEED_REG, TEMP_QWD)
 	movw XIDR_WRD, (DATA_PTR)
-	addq $OFST_WRD, DATA_PTR 
-	movw $GLOBVAR_dns_stock_flags, (DATA_PTR)
-	addq $OFST_WRD, DATA_PTR 
-	movq $GLOBVAR_dns_stock_qsingle, TEMP_QWD
-	movq TEMP_QWD, (DATA_PTR)
-	addq $OFST_QWD, DATA_PTR
-	
-	movq $12, CNTR_REG
-	movq $13, TEMP_QWD
+	addq $2, DATA_PTR
+	movb $1, (DATA_PTR)
+	addq $3, DATA_PTR
+	movb $1, (DATA_PTR)
+	addq $7, DATA_PTR
+
+	movq $0, CNTR_REG
+	movq $1, TEMP_QWD
 1:
 	movzbl (ADDR_PTR), READ_DWD
 	incq ADDR_PTR
@@ -61,29 +72,56 @@ resolve_dns_inet:
 	jmp 1b
 
 3:
-	SYSCALL_THREE_ARGS(SYSCNR_socket, $GLOBVAR_inet, $GLOBVAR_sock_dgram, $GLOBVAR_proto_default)
-	movq SOCK_RES, SOCK_TMP	
+	addq $2, TEMP_QWD	
+	movl $65537, (DATA_PTR, TEMP_QWD)
 
-	SYSCALL_THREE_ARGS(SYSCNR_connect, SOCK_TMP, RESV_TMP, $GLOBVAR_size_sockaddr_in)
+	popq RESV_PTR
+	movq RESV_PTR, TEMP_QWD
+	popq SOCK_TMP
 
-	SYSCALL_THREE_ARGS(SYSCNR_write, SOCK_TMP, DPTR_TMP, $GLOBVAR_dns_datagram_len)
+	SYSCALL_THREE_ARGS($SYSCNR_connect, SOCK_TMP, TEMP_QWD, $GLOBVAR_size_sockaddr_in)
 
+	popq DATA_PTR
+	movq DATA_PTR, TEMP_QWD
+	popq SOCK_TMP
+
+	SYSCALL_THREE_ARGS($SYSCNR_write, SOCK_TMP, TEMP_QWD, $GLOBVAR_dns_datagram_len)
+
+	popq DATA_PTR
 	movq $OFST_QWD, CNTR_REG
-	xorq TEMP_QWD, TEMP_QWD
+	xorq RETR_REG, RETR_REG
 4:
-	movq TEMP_QWD, (DPTR_TMP, CNTR_REG)
+	andq $0, (DATA_PTR, RETR_REG, OFST_QWD)
+	incq RETR_REG
 	loop 4b
 
-	SYSCALL_THREE_ARGS(SYSCNR_read, SOCK_TMP, DPTR_TMP, $GLOBVAR_dns_datagram_len)
+	movq DATA_PTR, TEMP_QWD
+	popq SOCK_TMP
+	SYSCALL_THREE_ARGS($SYSCNR_read, SOCK_TMP, TEMP_QWD, $GLOBVAR_dns_datagram_len)
+ 	
+	popq SOCK_TMP
+ 	SYSCALL_ONE_ARGS($SYSCNR_close, SOCK_TMP)	
 
-	popq RESV_TMP
-	popq DPTR_TMP
 
+	popq DATA_PTR
+	movzbl 3(DATA_PTR), TEMP_DWD
+	andq $15, TEMP_QWD
+
+	testq TEMP_QWD, TEMP_QWD
+	jnz 6f
+
+5:
 	ret
+
+6:
+	xorq RETR_REG, RETR_REG
+	movsx TEMP_LOW, RETR_WRD
+	negl RETR_DWD
+	jmp 5b
 
 	#undef ADDR_PTR
 	#undef DATA_PTR
-	#undef RESV_ADR
+	#undef RESV_PTR
 	#undef READ_QWD
 	#undef READ_DWD
 	#undef READ_WRD
@@ -99,5 +137,4 @@ resolve_dns_inet:
 	#undef SEED_REG
 	#undef SOCK_TMP
 	#undef SOCK_RES
-	#undef DPTR_TMP
-	#undef RESV_TMP
+	#undef RECV_LEN
