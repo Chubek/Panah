@@ -248,6 +248,7 @@ class DNSResolver:
 
 	def send_and_receive_query(self, addr: str, rectype=RECORD_A, recursion=RECURSE_DESIRED, retries=3) -> bytes:
 		packet, xid = generate_and_compose_query(addr, rectype, recursion)  # generate the packet
+		print([int(c) for c in packet])
 		lenpacket = len(packet)
 		sent = self.socket.send(packet)										# send the packet
 		while sent != lenpacket:											# retry if send fails

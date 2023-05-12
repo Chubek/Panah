@@ -1,3 +1,4 @@
 swap*
 __pycache__
 a.out
+*.o

@@ -24,6 +24,7 @@
 #define GLOBVAR_dns_rtype_a 1
 #define GLOBVAR_dns_rtype_aaaa 28
 #define GLOBVAR_dns_opcode_squery 0
-#define GLOBVAR_dns_stock_flags 256
-#define GLOBVAR_dns_stock_qsingle 281474976710656
+#define GLOBVAR_dns_stock_qsingle_qnum 281474976710656
+#define GLOBVAR_dns_stock_qsingle_header 256
 #define GLOBVAR_dns_datagram_len 512
+#define GLOBVAR_dns_datagram_bufsize 256
