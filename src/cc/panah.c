@@ -3,12 +3,11 @@
 #include "headers/cc/types.h"
 #include "headers/cc/addr.h"
 #include "headers/cc/resolve.h"
+#include "headers/cc/intutils.h"
 #endif
 
 int main() {
-	panah_sainet_s resolver = addr_new_sainet("8.8.8.8", 53);
-	panah_dqstatic_t querydata;
-	panah_dnsaddr_t dnsaddr = "google.com";
-	panah_yield_t yield = resolve_dns_inet(dnsaddr, querydata, &resolver);
-	panah_dnsquery_s response = (panah_dnsquery_s)querydata;
+	unsigned short s = short_from_bytes(255, 12);
+	unsigned int i = int_from_shorts(65535, 1000);
+	unsigned long l = long_from_ints(429496721, 11124); 
 }	
