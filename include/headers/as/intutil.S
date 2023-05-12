@@ -1,0 +1,3 @@
+.global short_from_netbyteorder
+.global int_from_netbyteorder
+.global long_from_netbyteorder
