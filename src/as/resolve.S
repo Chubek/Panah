@@ -1,3 +1,7 @@
+// Part of Panah Packet Wrangler: https://github.com/Chubek/Panah
+// Released under MIT License, see Panah/LICENSE for more info
+
+
 /*
 * the following subroutine makes a dns query
 * it accepts a dns address as a null-terminated string
@@ -6,7 +10,7 @@
 * for better details of how a dns request works see scripts/dnsrezulf.py
 */
 
-resolve_dns_inet:
+resolve_dns_address:
 	#define ADDR_PTR CABI_AG0
 	#define DATA_PTR CABI_AG1
 	#define RESV_PTR CABI_AG2
@@ -33,16 +37,16 @@ resolve_dns_inet:
 	pushq ADDR_PTR    					/* we push the arguments to stack because we wish to make a syscall */
 	pushq DATA_PTR
 	pushq RESV_PTR
-
+										/* we open a socket, of ipv4 family, and datagram type (udp)	    */
 	SYSCALL_THREE_ARGS($SYSCNR_socket, $GLOBVAR_inet, $GLOBVAR_sock_dgram, $GLOBVAR_proto_default)	
-	movq SOCK_RES, SOCK_TMP				/* after socket syscall, we save the socket to temp register	   */
+	movq SOCK_RES, SOCK_TMP				/* after socket syscall, we save the socket to temp register	    */
 
-	popq RESV_PTR						/* pop back all the saved registers, in reverse order 			   */ 
+	popq RESV_PTR						/* pop back all the saved registers, in reverse order 			    */ 
 	popq DATA_PTR
 	popq ADDR_PTR
 
-	pushq DATA_PTR						 /* push the values we need to the stack for future use				*/
-	pushq SOCK_TMP
+	pushq DATA_PTR						/* push the values we need to the stack for future use				*/
+	pushq SOCK_TMP						/* we will pop these values back and read them in the process		*/
 	pushq SOCK_TMP
 	pushq DATA_PTR
 	pushq SOCK_TMP
@@ -65,9 +69,9 @@ resolve_dns_inet:
 1:										/* the following loop reads the dns address into our query		     */
 	movzbl (ADDR_PTR), READ_DWD			/* again, dnsrezulf.py has better descriptions						 */
 	incq ADDR_PTR
-	testq READ_QWD, READ_QWD
+	testq READ_QWD, READ_QWD			/* check if we got a null, or a period (ascii 46), react accordingly */
 	jz 3f
-	cmpq $GLOBVAR_ascii_period, READ_QWD
+	cmpq $GLOBVAR_ascii_period, READ_QWD 
 	je 2f
 	movb READ_LOW, (DATA_PTR, TEMP_QWD)
 	incb (DATA_PTR, CNTR_REG)
@@ -80,25 +84,25 @@ resolve_dns_inet:
 	jmp 1b
 
 3:
-	addq $2, TEMP_QWD	
+	addq $2, TEMP_QWD					/* we add the class for internet and type for A record				 */
 	movl $65537, (DATA_PTR, TEMP_QWD)
 
 	popq RESV_PTR
 	movq RESV_PTR, TEMP_QWD
 	popq SOCK_TMP
-										  /* make a connect syscall with our given GLOBVAR_size_sockaddr_in	   */
+										  /* make a connect syscall with our given GLOBVAR_size_sockaddr_in	 */
 	SYSCALL_THREE_ARGS($SYSCNR_connect, SOCK_TMP, TEMP_QWD, $GLOBVAR_size_sockaddr_in)
 
 	popq DATA_PTR
 	movq DATA_PTR, TEMP_QWD
 	popq SOCK_TMP
-										  /* send our query														*/
+										  /* send our query													 */
 	SYSCALL_THREE_ARGS($SYSCNR_write, SOCK_TMP, TEMP_QWD, $GLOBVAR_dns_datagram_len)
 
 	popq DATA_PTR
 	movq $OFST_QWD, CNTR_REG
 	xorq RETR_REG, RETR_REG
-4:										  /* this loop will clear our data for reading back						*/
+4:										  /* this loop will clear our data for reading back					 */
 	andq $0, (DATA_PTR, RETR_REG, OFST_QWD)
 	incq RETR_REG
 	loop 4b
@@ -107,7 +111,7 @@ resolve_dns_inet:
 	popq SOCK_TMP						 /* read results back													*/
 	SYSCALL_THREE_ARGS($SYSCNR_read, SOCK_TMP, TEMP_QWD, $GLOBVAR_dns_datagram_len)
  	
-	popq SOCK_TMP
+	popq SOCK_TMP						/* close the socket because we do no longer need it 					*/
  	SYSCALL_ONE_ARGS($SYSCNR_close, SOCK_TMP)	
 
 
