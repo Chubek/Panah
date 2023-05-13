@@ -1,1 +1,1 @@
-scripts/compile.sh
+scripts/compile.sh $@
