@@ -11,6 +11,7 @@ typedef signed int panah_yield_t;
 typedef signed char panah_asciistatic_t[21];
 typedef unsigned char panah_dqstatic_t[512];
 typedef unsigned int panah_inetaddr_t;
+typedef unsigned int panah_dqtype_t;
 typedef unsigned short panah_inetport_t;
 typedef unsigned short panah_dqxid_t;
 typedef unsigned short panah_dqflag_t;
