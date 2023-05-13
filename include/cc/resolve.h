@@ -1,4 +1,4 @@
-extern panah_yield_t resolve_dns_inet(panah_dnsaddr_t dnsaddr, panah_dqstatic_t querydata, panah_sainet_s *resolver);
+extern panah_yield_t resolve_dns_address(panah_dnsaddr_t dnsaddr, panah_dqstatic_t querydata, panah_sainet_s *resolver);
 panah_yield_t parse_dqheader(panah_dqstatic_t querydata, panah_dqheader_s *dst);
 panah_yield_t parse_dqquestion(panah_dqstatic_t querydata, panah_dqquestion_s *dst);
 panah_yield_t parse_dqrecord(panah_dqstatic_t querydata, panah_dqrecord_s *dst);
