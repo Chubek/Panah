@@ -3,10 +3,11 @@
 
 
 /*
-* the following subroutine makes a dns query
+* the following subroutine makes a dns query based on type
 * it accepts a dns address as a null-terminated string
 * the second argument is a 512-byte array, it can be both statically or dynamically allocated
 * the third argument is the resolver inetaddr_in struct, must have size of 16 bytes
+* the forth argument is a the type, but it should also contain the class as the last two bytes, which is a 2-byte x00x001 (internet)
 * for better details of how a dns request works see scripts/dnsrezulf.py
 */
 
@@ -14,6 +15,7 @@ resolve_dns_address:
 	#define ADDR_PTR CABI_AG0
 	#define DATA_PTR CABI_AG1
 	#define RESV_PTR CABI_AG2
+	#define TYPE_NUM CABI_AG3
 	#define READ_QWD CLB1_QWD
 	#define READ_DWD CLB1_DWD
 	#define READ_WRD CLB1_WRD
@@ -37,11 +39,13 @@ resolve_dns_address:
 	pushq ADDR_PTR    					/* we push the arguments to stack because we wish to make a syscall */
 	pushq DATA_PTR
 	pushq RESV_PTR
+	pushq TYPE_NUM
 										/* we open a socket, of ipv4 family, and datagram type (udp)	    */
 	SYSCALL_THREE_ARGS($SYSCNR_socket, $GLOBVAR_inet, $GLOBVAR_sock_dgram, $GLOBVAR_proto_default)	
 	movq SOCK_RES, SOCK_TMP				/* after socket syscall, we save the socket to temp register	    */
 
-	popq RESV_PTR						/* pop back all the saved registers, in reverse order 			    */ 
+	popq TYPE_NUM						/* pop back all the saved registers, in reverse order 			    */ 
+	popq RESV_PTR
 	popq DATA_PTR
 	popq ADDR_PTR
 
@@ -53,6 +57,7 @@ resolve_dns_address:
 	pushq DATA_PTR
 	pushq SOCK_TMP
 	pushq RESV_PTR
+	pushq TYPE_NUM
 	
 
 	rdtsc								/* generate the xid for our dns query, see scripts/dnsrezulf.py		*/
@@ -84,8 +89,9 @@ resolve_dns_address:
 	jmp 1b
 
 3:
-	addq $2, TEMP_QWD					/* we add the class for internet and type for A record				 */
-	movl $65537, (DATA_PTR, TEMP_QWD)
+	addq $2, TEMP_QWD					/* we add the class for internet and type for record type			 */
+	popq TYPE_NUM
+	movl TYPE_NUM, (DATA_PTR, TEMP_QWD)
 
 	popq RESV_PTR
 	movq RESV_PTR, TEMP_QWD
@@ -134,6 +140,7 @@ resolve_dns_address:
 	#undef ADDR_PTR
 	#undef DATA_PTR
 	#undef RESV_PTR
+	#undef TYPE_NUM
 	#undef READ_QWD
 	#undef READ_DWD
 	#undef READ_WRD
