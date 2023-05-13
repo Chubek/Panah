@@ -1,9 +1,14 @@
-#ifndef __INC_CC_HEADERS
-#define __INC_CC_HEADERS
-#include "headers/cc/types.h"
-#include "headers/cc/addr.h"
-#include "headers/cc/resolve.h"
-#include "meta/globvars.inc"
+#ifndef __INC_TYPE_H
+#define __INC_TYPE_H
+#include "types.h"
+#endif
+#ifndef __INC_ADDR_H
+#define __INC_ADDR_H
+#include "addr.h"
+#endif
+#ifndef __INC_GLOBVARS_INC
+#define __INC_GLOBVARS_INC
+#include "globvars.inc"
 #endif
 
 

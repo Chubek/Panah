@@ -1,9 +1,9 @@
 #ifndef __INC_CC_HEADERS
 #define __INC_CC_HEADERS
-#include "headers/cc/types.h"
-#include "headers/cc/addr.h"
-#include "headers/cc/resolve.h"
-#include "headers/cc/intutils.h"
+#include "types.h"
+#include "addr.h"
+#include "resolve.h"
+#include "intutils.h"
 #endif
 
 int main() {
