@@ -28,5 +28,5 @@
 #define GLOBVAR_dns_stock_qsingle_header 256
 #define GLOBVAR_dns_datagram_len 512
 #define GLOBVAR_dns_datagram_bufsize 256
-#define GLOBVAR_dns_typenum_inet 65537
-#define GLOBVAR_dns_typenum_inet6 16784384
+#define GLOBVAR_dns_typeclass_inet 65537
+#define GLOBVAR_dns_typeclass_inet6 65564
