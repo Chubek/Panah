@@ -4,7 +4,7 @@
 * the destination must be a pointer to memory, 4 bytes in length
 * it can be allocated both statically and dynamically, however, I recommend just passing it pointer to an int
 */
-addr_inet_address_to_netbyteorder:
+asciizhost_to_inetaddr:
 	#define ADDR_PTR CABI_AG0
 	#define INGT_PTR CABI_AG1
 	#define SHFL_CNT CNTR_QWD
@@ -90,7 +90,7 @@ addr_inet_address_to_netbyteorder:
 * the following converts a short integer to net byte orderm aka big endian
 * the result is returned in the accumulator
 */
-addr_inet_port_to_netbyteorder:
+cshort_port_to_netorder:
 	#define PORT_REG CABI_AG0
 	#define RESL_REG CABI_RET
 	#define RESL_HIB ACCM_HIB
