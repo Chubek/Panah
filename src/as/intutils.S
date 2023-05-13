@@ -37,19 +37,17 @@ int_from_shorts:
 	
 
 long_from_ints:
-	#define INTG_LOW DEST_DWD
-	#define INTG_HII SRCR_DWD
-	#define RETR_DWD ACCM_DWD
+	#define INTG_LOW DEST_QWD
+	#define INTG_HII SRCR_QWD
 	#define RETR_REG ACCM_QWD
 
 	xorq RETR_REG, RETR_REG
-	movl INTG_HII, RETR_DWD
+	orq INTG_HII, RETR_REG
 	shlq $32, RETR_REG
-	movl INTG_LOW, RETR_DWD
+	orq INTG_LOW, RETR_REG
 
 	ret
 
 	#undef INTG_LOW
 	#undef INTG_HII
 	#undef RETR_REG
-	#undef RETR_DWD
