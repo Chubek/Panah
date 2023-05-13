@@ -17,3 +17,4 @@
 #include "resolve.S"
 #include "intutils.S"
 #include "strutils.S"
+#include "memutils.S"
