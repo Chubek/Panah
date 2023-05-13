@@ -16,6 +16,7 @@ resolve_dns_address:
 	#define DATA_PTR CABI_AG1
 	#define RESV_PTR CABI_AG2
 	#define TYPE_NUM CABI_AG3
+	#define TNUM_DWD CNTR_DWD
 	#define READ_QWD CLB1_QWD
 	#define READ_DWD CLB1_DWD
 	#define READ_WRD CLB1_WRD
@@ -91,7 +92,7 @@ resolve_dns_address:
 3:
 	addq $2, TEMP_QWD					/* we add the class for internet and type for record type			 */
 	popq TYPE_NUM
-	movl TYPE_NUM, (DATA_PTR, TEMP_QWD)
+	movl TNUM_DWD, (DATA_PTR, TEMP_QWD)
 
 	popq RESV_PTR
 	movq RESV_PTR, TEMP_QWD
