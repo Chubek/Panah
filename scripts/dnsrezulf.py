@@ -350,6 +350,6 @@ if __name__ == "__main__":
 	if rectype == RECORD_A:
 		print(f"\t{address} | A | {ttl} | {'.'.join([str(c) for c in data])}")
 	elif rectype == RECORD_AAAA:
-		print(f"\t{address} | AAAA | {ttl} | {':'.join([format(c, 'x') for c in data])}")
+		print(f"\t{address} | AAAA | {ttl} | {':'.join([format(int.from_bytes([c1, c2], byteorder='big', signed=False), 'x') for c1, c2 in zip(data[::2], data[1::2])])}")
 	else:
 		print(f"\t{address} | CNAME | {ttl} | {data}")
