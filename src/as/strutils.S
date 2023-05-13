@@ -1,4 +1,4 @@
-print_nullterm_string_to_stdout:
+print_asciiz_to_stdout:
 	#define ADDR_STR CABI_AG0
 	#define READ_REG CLB1_DWD
 	#define READ_QWD CLB1_QWD
@@ -24,7 +24,7 @@ print_nullterm_string_to_stdout:
 	#undef CNTR_REG
 
 
-print_nullterm_string_to_stderr:
+print_asciiz_to_stderr:
 	#define ADDR_STR CABI_AG0
 	#define READ_REG CLB1_DWD
 	#define READ_QWD CLB1_QWD
