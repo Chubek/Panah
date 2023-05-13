@@ -1,1 +1,1 @@
-gcc -ggdb3 -Iinclude/cc -Iinclude/meta $@ src/cc/panah.c src/cc/addr.c src/cc/intutils.c  src/as/panah.S -o /tmp/panah && gdb /tmp/panah
+gcc -ggdb3 -Iinclude/cc -Iinclude/meta $@ src/cc/panah.c src/cc/addr.c src/cc/intutils.c src/cc/resolve.c  src/as/panah.S -o /tmp/panah && gdb /tmp/panah
