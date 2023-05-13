@@ -55,7 +55,7 @@ unsigned long ascii_to_long(panah_asciinum_t ascii) {
 	}
 	return number;
 }
-panah_nonyield_t long_to_ascii(unsigned long number, panah_asciistatic_t asciinum) {
+panah_nonyield_t long_to_ascii(unsigned long number, panah_asciiznum_t asciinum) {
 	int i = 0;
 	unsigned long numcopy = number;
 	while (numcopy /= 10) i++;
