@@ -4,6 +4,7 @@ typedef signed char *panah_dqdata_t;
 typedef signed char *panah_asciinum_t;
 typedef signed char *panah_dnsaddr_t;
 typedef signed char *panah_dqname_t;
+typedef signed char *panah_nulltstr_t;
 typedef signed char *panah_dnsresolver_t;
 typedef signed int panah_dnsttl_t;
 typedef signed int panah_yield_t;

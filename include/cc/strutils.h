@@ -1,0 +1,2 @@
+extern panah_nonyield_t print_nullterm_string_to_stdout(panah_nulltstr_t string);
+extern panah_nonyield_t print_nullterm_string_to_stderr(panah_nulltstr_t string);
