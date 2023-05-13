@@ -1,22 +1,19 @@
 #ifndef __META_INC
 #define __META_INC
-#include "meta/errors.inc"
-#include "meta/globvars.inc"
-#include "meta/protos.inc"
-#include "meta/registers.inc"
-#include "meta/syscnr.inc"
-#include "meta/syscall.inc"
+#include "errors.inc"
+#include "globvars.inc"
+#include "protos.inc"
+#include "registers.inc"
+#include "syscnr.inc"
+#include "syscall.inc"
 #endif
 
 .data
-#include "headers/as/addr.S"
-#include "headers/as/net.S"
-#include "headers/as/resolve.S"
-#include "headers/as/intutils.S"
-
+#include "globals.inc"
 
 .text
 #include "addr.S"
 #include "net.S"
 #include "resolve.S"
 #include "intutils.S"
+#include "strutils.S"
