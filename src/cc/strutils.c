@@ -11,8 +11,8 @@
 #if defined ( __TEST__ ) && defined ( __TEST_STRUTILS__ )
 
 int main() {
-	asciiz_t str = "0123456789";
-	reverse_string_nbyte(str, 10);
+	signed char str[11] =  {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '\0'};
+	reverse_string_nbytes(str, 10);
 }
 
 #endif
