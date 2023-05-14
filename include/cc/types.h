@@ -55,6 +55,7 @@ typedef unsigned short dqclass_t;
 typedef unsigned short dqlen_t;
 typedef unsigned short safamily_t;
 typedef unsigned long memsize_t;
+typedef unsigned long strlen_t;
 typedef unsigned long ptparent_t;
 typedef unsigned long ptindex_t;
 

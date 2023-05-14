@@ -1,5 +1,5 @@
-#ifndef __INC_TYPE_H
-#define __INC_TYPE_H
+#ifndef __INC_TYPES_H
+#define __INC_TYPES_H
 #include "types.h"
 #endif
 #ifndef __INC_INTUTILS_H
