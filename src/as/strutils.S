@@ -54,19 +54,21 @@ reverse_string_nbytes:
 	#define STRN_PTR CABI_AG0
 	#define STRN_LEN CABI_AG1
 	#define CNTR_REG CNTR_QWD
-	#define READ_REG CLB1_DWD
-	#define READ_LOW CLB1_LOW
-	#define READ_QWD CLB1_QWD
+	#define READ_REG ACCM_DWD
+	#define READ_LOW ACCM_LOB
+	#define READ_QWD ACCM_QWD
 	#define TEMP_QWD CLB2_QWD
 
 	movq STRN_LEN, CNTR_REG
+	movq STRN_PTR, TEMP_QWD
 
 1:
-	movzbl (STRN_PTR, CNTR_REG), READ_REG
+	movzbl (TEMP_QWD), READ_REG
+	incq TEMP_QWD
 	pushq READ_QWD
 	loop 1b
 
-	movq STRN_LEN, CNTR_PTR
+	movq STRN_LEN, CNTR_REG
 
 2:
 	popq READ_QWD
