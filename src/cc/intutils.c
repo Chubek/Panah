@@ -88,6 +88,7 @@ int main() {
 	unsigned long longd = ascii_to_long("12334");
 	asciistatic_t asciinum;
 	long_to_ascii(longd, asciinum);
+	return 0;
 } 
 
 #endif

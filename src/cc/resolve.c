@@ -124,6 +124,7 @@ int main () {
 	asciizhost_to_inetaddr("93.184.216.34", &check);
 	make_dnsquery_and_get_inetaddr("example.com", "8.8.8.8", 53, &inet);
 	make_dnsquery_and_get_inet6addr("example.com", "8.8.8.8", 53, &inet6);
+	return 0;
 }
 
 #endif
