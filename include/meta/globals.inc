@@ -9,3 +9,4 @@
 .global copy_memory_from_bytewise
 .global clear_memory_qwordwise
 .global clear_memory_bytewise
+.global reverse_string_nbytes
