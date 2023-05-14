@@ -12,11 +12,11 @@
 #endif
 
 
-panah_sainet_s new_inet_addr(panah_asciizinet_t host, panah_inetport_t port) {
-	panah_inetaddr_t addr = 0;
+sainet_s new_inet_addr(asciizinet_t host, inetport_t port) {
+	inetaddr_t addr = 0;
 	asciizhost_to_inetaddr(host, &addr);
 
-	return (panah_sainet_s){
+	return (sainet_s){
 		.sin_family = GLOBVAR_inet,
 		.sin_port = cshort_port_to_netorder(port),
 		.sin_addr = addr, 

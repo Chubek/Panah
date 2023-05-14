@@ -15,6 +15,7 @@
 #include "addr.S"
 #include "net.S"
 #include "resolve.S"
+#indlude "compress.S"
 #include "intutils.S"
 #include "strutils.S"
 #include "memutils.S"

@@ -47,7 +47,7 @@ unsigned long long_from_bytes_msb_right(unsigned char lsb, unsigned char byte1, 
 	return long_from_ints(msd, lsd);
 }
 
-unsigned long ascii_to_long(panah_asciinum_t ascii) {
+unsigned long ascii_to_long(asciinum_t ascii) {
 	unsigned long number = 0;
 	char digit = '\0';
 	while (digit = *ascii++) {
@@ -55,7 +55,7 @@ unsigned long ascii_to_long(panah_asciinum_t ascii) {
 	}
 	return number;
 }
-panah_nonyield_t long_to_ascii(unsigned long number, panah_asciiznum_t asciinum) {
+nonyield_t long_to_ascii(unsigned long number, asciiznum_t asciinum) {
 	int i = 0;
 	unsigned long numcopy = number;
 	while (numcopy /= 10) i++;
@@ -86,7 +86,7 @@ int main() {
 	unsigned long qwordbe = long_from_bytes_msb_left(b1, b2, b3, b4, b5, b6, b7, b8);
 	unsigned long qwordle = long_from_bytes_msb_right(b1, b2, b3, b4, b5, b6, b7, b8);
 	unsigned long longd = ascii_to_long("12334");
-	panah_asciistatic_t asciinum;
+	asciistatic_t asciinum;
 	long_to_ascii(longd, asciinum);
 } 
 

@@ -90,3 +90,7 @@ typedef struct SocketAddressInet {
 	panah_inetaddr_s sin_addr;
 	unsigned char pad[8];
 } panah_sainet_s;
+
+typedef struct PrefixTreeItem {
+
+} panah_prefix
