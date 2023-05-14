@@ -34,7 +34,7 @@ typedef signed char dqrdata_t[DNSQRDATA_LEN];
 typedef signed char *asciizinet_t;
 typedef signed char *asciinum_t;
 typedef signed char *dnsaddr_t;
-typedef signed char *asziiz_t;
+typedef signed char *asciiz_t;
 typedef signed char *dnsresolver_t;
 typedef signed int dnsttl_t;
 typedef signed int yield_t;
