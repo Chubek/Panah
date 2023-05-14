@@ -1,7 +1,7 @@
 from os import open as sysc_open, read as sysc_read, write as sysc_write, close as sysc_close, fstat as sysc_fstat, O_CREAT, O_WRONLY, O_RDONLY, O_RDWR
 from stat import S_IRUSR, S_IWUSR
 
-SEPARATOR = 16777216
+EOF = 16777216
 SUM_BYTES = 32640
 TRIPFILE_SIZE = 8290560
 SYMTABLE_LEN = 2731136
