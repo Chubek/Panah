@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # Part of Panah Packet Wrangler: https://github.com/Chubek/Panah
 # Released under MIT License, see Panah/LICENSE for more info
 
@@ -10,9 +12,8 @@
 # based on RFC 1035: https://datatracker.ietf.org/doc/html/rfc1035
 # also RFC 3596 for AAAA: https://datatracker.ietf.org/doc/html/rfc3596
 
+from ctypes import c_ushort
 from socket import AF_INET, SOCK_DGRAM, socket
-from time import time_ns
-from ctypes import c_ushort, c_uint
 
 # Part A: Globals & Utils
 
@@ -24,7 +25,7 @@ RECURSE_DESIRED 		= 1			    # setting this flag means we want recursive lookup
 RECURSE_UNDESIRED  		= 0 			# and this means recurse is undesired
 
 RCODE_FORMATERROR 		= -1			# these are the 5 return codes of a dns query 
-RCODE_SERVREFAIL  		= -2			# format and name error, server fail, implementation issues
+RCODE_SERVERFAIL  		= -2			# format and name error, server fail, implementation issues
 RCODE_NAMEERROR 		= -3			# and refused error, you can view all these in RFC 1035 page
 RCODE_NOTIMPLEMENTED  	= -4			# 27 --- notice that these are not signed, however, we sign them
 RCODE_REFUSED     		= -5			# because we wish to return them as signed values in case of error
@@ -34,10 +35,120 @@ ERROR_NORECURSION		= -7			# xid mismatch, and no recursion being available in re
 
 CLASS_INTERNET    		= 1				# this is the resource class for internet, we will set it as default for obvious reasosn
 
-RECORD_A   				= 1				# marks TXT record type
+RECORD_A   				= 1				# marks A record type
 RECORD_CNAME 			= 5				# marks CNAME record type
+RECORD_TXT				= 16			# marks TXT record type
 RECORD_AAAA  			= 28			# marks AAAA record type
 
+ENCODINGS_PY = [
+ 'ascii',								# this is a list of all the Python text codecs
+ 'big5',								# we will use them at the end to decode  CNAME and TXT records
+ 'big5hkscs',
+ 'cp037',
+ 'cp273',
+ 'cp424',
+ 'cp437',
+ 'cp500',
+ 'cp720',
+ 'cp737',
+ 'cp775',
+ 'cp850',
+ 'cp852',
+ 'cp855',
+ 'cp856',
+ 'cp857',
+ 'cp858',
+ 'cp860',
+ 'cp861',
+ 'cp862',
+ 'cp863',
+ 'cp864',
+ 'cp865',
+ 'cp866',
+ 'cp869',
+ 'cp874',
+ 'cp875',
+ 'cp932',
+ 'cp949',
+ 'cp950',
+ 'cp1006',
+ 'cp1026',
+ 'cp1125',
+ 'cp1140',
+ 'cp1250',
+ 'cp1251',
+ 'cp1252',
+ 'cp1253',
+ 'cp1254',
+ 'cp1255',
+ 'cp1256',
+ 'cp1257',
+ 'cp1258',
+ 'euc_jp',
+ 'euc_jis_2004',
+ 'euc_jisx0213',
+ 'euc_kr',
+ 'gb2312',
+ 'gbk',
+ 'gb18030',
+ 'hz',
+ 'iso2022_jp',
+ 'iso2022_jp_1',
+ 'iso2022_jp_2',
+ 'iso2022_jp_2004',
+ 'iso2022_jp_3',
+ 'iso2022_jp_ext',
+ 'iso2022_kr',
+ 'latin_1',
+ 'iso8859_2',
+ 'iso8859_3',
+ 'iso8859_4',
+ 'iso8859_5',
+ 'iso8859_6',
+ 'iso8859_7',
+ 'iso8859_8',
+ 'iso8859_9',
+ 'iso8859_10',
+ 'iso8859_11',
+ 'iso8859_13',
+ 'iso8859_14',
+ 'iso8859_15',
+ 'iso8859_16',
+ 'johab',
+ 'koi8_r',
+ 'koi8_t',
+ 'koi8_u',
+ 'kz1048',
+ 'mac_cyrillic',
+ 'mac_greek',
+ 'mac_iceland',
+ 'mac_latin2',
+ 'mac_roman',
+ 'mac_turkish',
+ 'ptcp154',
+ 'shift_jis',
+ 'shift_jis_2004',
+ 'shift_jisx0213',
+ 'utf_32',
+ 'utf_32_be',
+ 'utf_32_le',
+ 'utf_16',
+ 'utf_16_be',
+ 'utf_16_le',
+ 'utf_7',
+ 'utf_8',
+ 'utf_8_sig'
+ ]
+
+errors_explain = {
+	str(RCODE_FORMATERROR): "This is an rcode error, as specified by the RFC. This means there was a format error in the query.",
+	str(RCODE_SERVERFAIL): "This is an rcode error, as specified by the RFC. This means there was a server failure on the resolver's par, but sometimes it just means the formatting was wrong.",
+	str(RCODE_NAMEERROR): "This is an rcode error, as specified by the RFC. This means there was a problem with the DNS address, maybe it is not registered, or the resolver does not support it.",
+	str(RCODE_NOTIMPLEMENTED): "This is an rcode error, as specified by the RFC. This means the resolver does not support the query type.",
+	str(RCODE_REFUSED): "This is an rcode error, as specified by the RFC. This means the resolver has refused to honor this query",
+	str(ERROR_XIDMISMATCH): "This is a DNSRezulf error, This means the resolver sent an XID that did not match the XID we sent to it.",
+	str(ERROR_NORECURSION): "This is a DNSRezulf error, this means although we specified recursion, the resolver does not support it.",
+}
 
 def dataclass(cls: type) -> type:
 	args = {k: v for k, v in cls.__dict__.items() if not k.startswith("__")}
@@ -57,14 +168,47 @@ def dataclass(cls: type) -> type:
 
 
 def generate_random_ushort() -> int:
+	from time import time_ns
 	seed = time_ns()
 	return c_ushort(((seed << 5) + seed) % MAXU16).value
+
 
 def error_out(message: str):
 	print("\033[1;31mError occured\033[0m")
 	print(message)
 	exit(1)
 
+
+def get_executable_name() -> str:
+	from sys import executable
+	from pathlib import Path
+	return Path(executable).name
+
+
+def get_script_name() -> str:
+	from sys import argv
+	return argv[0]
+
+
+def decode_record_rdata(codec: str, rdata: bytearray) -> str:
+	execname = get_executable_name()
+	scriptname = get_script_name()
+	if  codec[:3] == "raw":
+		return "bytearray[ " + ', '.join([str(int(b)) for b in rdata]) + "]"
+	elif codec == 'brute':
+		for enc in ENCODINGS_PY:
+			try:
+				return rdata.decode(enc)
+			except:
+				continue
+			finally:
+				print("None of Python's codecs could decode the result, printing it raw...")
+				return "[ " + ', '.join([str(int(b)) for b in rdata]) + "]"
+	else:
+		if codec not in ENCODINGS_PY:
+			error_out(f"Encoding {codec} is not present in Python's list of available codecs\nPlease pass `{execname} {scriptname} --encoding list` to see a full list of available codecs")
+		else:
+			return rdata.encode(codec)
 
 # Part B: Types
 
@@ -219,7 +363,7 @@ def generate_and_compose_query(address: str, rectype=RECORD_A, recursive=RECURSE
 	return encode_dns_query_packet(header, question), header.xid
 
 
-def parse_server_response(response: bytearray, xid: c_ushort, recursion=RECURSE_DESIRED) -> bytes:
+def parse_server_response(response: bytearray, xid: c_ushort, recursion=RECURSE_DESIRED, record=None) -> bytes:
 	header = decode_dns_query_header(response)
 	# check for errors in response
 	if header.xid != xid:
@@ -230,7 +374,6 @@ def parse_server_response(response: bytearray, xid: c_ushort, recursion=RECURSE_
 		return -header.rcode          	# we sign-extend the rcode if it is non-zero and return it
 	record = decode_dns_query_resource_record(response)
 	return record
-
 
 # Part D: Resolver
 
@@ -246,7 +389,7 @@ class DNSResolver:
 	def connect_to_resolver(self):
 		self.socket.connect((self.resolver, self.port))						# connect to the socket
 
-	def send_and_receive_query(self, addr: str, rectype=RECORD_A, recursion=RECURSE_DESIRED, retries=3) -> bytes:
+	def send_and_receive_query_and_parse_results(self, addr: str, rectype=RECORD_A, recursion=RECURSE_DESIRED, retries=3, record=None) -> bytes:		
 		packet, xid = generate_and_compose_query(addr, rectype, recursion)  # generate the packet
 		lenpacket = len(packet)
 		sent = self.socket.send(packet)										# send the packet
@@ -268,9 +411,9 @@ class DNSResolver:
 
 
 if __name__ == "__main__":
-	from sys import argv, executable
-	execname = executable.split("/")[-1]
-	scriptname = argv[0]
+	from sys import argv
+	execname = get_executable_name()
+	scriptname = get_script_name()
 	argv = argv[1:]
 
 	params = {
@@ -279,16 +422,28 @@ if __name__ == "__main__":
 		"address": ["--address", "-ad"],
 		"rectype": ["--rectype", "-rr"],
 		"recursion": ["--recursion", "-re"],
+		"codec": ["--encoding", "-en"]
 	}
 
 	if "--help" in argv or "-h" in argv:
 		print("\033[1;33mDNSRezulf by Chubak Bidpaa\033[0m")
-		print("\033[1m[Long Param/Short Param] | Purpose | Default Value\033[0m")
-		print("[--resolver/-rs] | DNS Resolver Server | 8.8.8.8")
-		print("[--port/-p] | DNS Resolver Port | 53")
-		print("[--address/-ad] | Address to Resolver | example.com")
-		print("[--rectype|-rr] | RR Type | A")
-		print("[--recursion/-rr] | Recursive Search? | 1")
+		print("Released under MIT License")
+		print(f"DNSRezulf ({scriptname}) is a very simple DNS Resolver. Think, a watered down version of dig.")
+		print("You may request A, AAAA, CNAME and TXT records with it. You may specify whether the search is recursive or not.")
+		print("The default resolver in 8.8.8.8, which is Google's resolver. But you may select a different one.")
+		print("If you pass `list` to --encoding, it will print all the available codecs, and exit.")
+		print("If you pass an error code to --errors, it will explain the error code, and exit.")
+		print("Only standard queries are available. No inverse query and whatnot.")
+		print("\033[1m")
+		print("|   Parameter     |      Purpose        | Default")
+		print("[--resolver/-rs]  | DNS Resolver Server | 8.8.8.8")
+		print("[--port/-p] 		 | DNS Resolver Port   | 53")
+		print("[--address/-ad]   | Address to Resolver | example.com")
+		print("[--rectype|-rr]   | RR Type    		   | A")
+		print("[--recursion/-re] | Recursive Search?   | 1")
+		print("[--encoding/-en]  | CNAME/TXT Codec 	   | raw")
+		print("[--errors/-er     | Error code explain  | None")
+		print("\033[0m")
 		print(f"Example: {execname} {scriptname} -ad google.com --rectype AAAA")
 		exit(1)
 
@@ -297,8 +452,11 @@ if __name__ == "__main__":
 		"port": "53",
 		"address": "example.com",
 		"rectype": "A",
-		"recursion": "1"
+		"recursion": "1",
+		"codec": "raw",
+		"errors": None,
 	}
+
 	all_params = sum(params.values(), [])
 	skip = False
 	for arg in argv:
@@ -313,6 +471,17 @@ if __name__ == "__main__":
 		else:
 			error_out(f"Illegal parameter: {arg}")
 
+
+	if args['errors'] is not None:
+		errcode = args['errrors']
+		if errcode not in errors_explain:
+			error_out("Wrong error code passed to --errors")
+		print(errors_explain(errcode))
+		exit(1)
+
+	if args['codec'] == 'list':
+		print("\n".join(ENCODINGS_PY))
+		exit(1)
 
 	if not args["port"].isdigit():
 		error_out("Port must be digits")
@@ -330,6 +499,8 @@ if __name__ == "__main__":
 		rectype = RECORD_AAAA
 	elif rectype == "CNAME":
 		rectype = RECORD_CNAME
+	elif rectype == "TXT":
+		rectype = RECORD_TXT
 	else:
 		error_out("Wrong record type")
 
@@ -340,16 +511,24 @@ if __name__ == "__main__":
 
 	dnsresolver = DNSResolver(resolver, port)
 	dnsresolver.connect_to_resolver()
-	record = dnsresolver.send_and_receive_query(address, rectype, recursion)
+	queryresult = dnsresolver.send_and_receive_query_and_parse_results(addr=address, rectype=rectype, recursion=recursion)
 	dnsresolver.close_connection()
 
-	data = record.rdata
-	ttl = record.ttl
+	if type(queryresult) == int and queryresult < 0:
+		error_out(f"Error ocurred, code: {queryresult}\nPlease type in {execname} {scriptname} --errors {queryresult} to inspect")
+
+	data = queryresult.rdata
+	ttl = queryresult.ttl
 	address = address.decode()
+
+	if rectype in [RECORD_TXT, RECORD_CNAME]:
+		data = decode_record_rdata(args['codec'], data)
 
 	if rectype == RECORD_A:
 		print(f"\t{address} | A | {ttl} | {'.'.join([str(c) for c in data])}")
 	elif rectype == RECORD_AAAA:
 		print(f"\t{address} | AAAA | {ttl} | {':'.join([format(int.from_bytes([c1, c2], byteorder='big', signed=False), 'x') for c1, c2 in zip(data[::2], data[1::2])])}")
+	elif rectype == RECORD_TXT:
+		print(f"\t{address} | TXT | {ttl} | `{data}`")
 	else:
-		print(f"\t{address} | CNAME | {ttl} | {data}")
+		print(f"\t{address} | CNAME | {ttl} | `{data}`")
