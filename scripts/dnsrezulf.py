@@ -137,7 +137,13 @@ ENCODINGS_PY = [
  'utf_16_le',
  'utf_7',
  'utf_8',
- 'utf_8_sig'
+ 'utf_8_sig',
+ 'utf8',
+ 'utf16',
+ 'utf32',
+ 'utf-8',
+ 'utf-16',
+ 'utf-32'
  ]
 
 errors_explain = {
@@ -208,7 +214,7 @@ def decode_record_rdata(codec: str, rdata: bytearray) -> str:
 		if codec not in ENCODINGS_PY:
 			error_out(f"Encoding {codec} is not present in Python's list of available codecs\nPlease pass `{execname} {scriptname} --encoding list` to see a full list of available codecs")
 		else:
-			return rdata.encode(codec)
+			return rdata.decode(codec)
 
 # Part B: Types
 
@@ -422,7 +428,8 @@ if __name__ == "__main__":
 		"address": ["--address", "-ad"],
 		"rectype": ["--rectype", "-rr"],
 		"recursion": ["--recursion", "-re"],
-		"codec": ["--encoding", "-en"]
+		"codec": ["--encoding", "-en"],
+		"errors": ["--errors", "-er"]
 	}
 
 	if "--help" in argv or "-h" in argv:
@@ -473,10 +480,10 @@ if __name__ == "__main__":
 
 
 	if args['errors'] is not None:
-		errcode = args['errrors']
+		errcode = args['errors']
 		if errcode not in errors_explain:
 			error_out("Wrong error code passed to --errors")
-		print(errors_explain(errcode))
+		print(errors_explain.get(errcode))
 		exit(1)
 
 	if args['codec'] == 'list':
